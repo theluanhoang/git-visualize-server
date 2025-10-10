@@ -50,4 +50,12 @@ export class LessonService {
         const merged = this.lessonRepository.merge(existing, dto);
         return this.lessonRepository.save(merged);
     }
+
+  async deleteLesson(id: string): Promise<{ success: true }>{
+    const result = await this.lessonRepository.softDelete({ id });
+    if (!result.affected) {
+      throw new NotFoundException('Lesson not found');
+    }
+    return { success: true };
+  }
 }

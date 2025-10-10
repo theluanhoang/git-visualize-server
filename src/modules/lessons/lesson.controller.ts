@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query, Delete } from '@nestjs/common';
 import { LessonService } from './lesson.service';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
@@ -31,5 +31,12 @@ export class LessonController {
     @ApiBadRequestResponse({ description: 'Validation failed' })
     async updateLesson(@Param('id') id: string, @Body() dto: UpdateLessonDTO) {
         return this.lessonService.updateLesson(id, dto);
+    }
+
+    @Delete(':id')
+    @ApiOperation({ summary: 'Delete a lesson by id (soft delete)' })
+    @ApiOkResponse({ description: 'Lesson deleted' })
+    async deleteLesson(@Param('id') id: string) {
+        return this.lessonService.deleteLesson(id);
     }
 }
