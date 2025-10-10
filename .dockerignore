@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+Dockerfile*
+.dockerignore
+.git
+.gitignore
+coverage
+.eslintcache
+.editorconfig
+.idea
+.vscode
+.env.local
+.env.*.local
+.env
+**/*.tsbuildinfo
+dist

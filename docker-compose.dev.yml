@@ -1,0 +1,54 @@
+version: "3.8"
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+      POSTGRES_USER: ${DB_USER:-admin}
+    ports:
+      - "5432:5432"
+    volumes:
+      - local_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_dev
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@gmail.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     target: builder
+  #   env_file:
+  #     - .env.development
+  #   environment:
+  #     - DB_HOST=${DB_HOST:-db}
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./src:/app/src
+  #     - ./tsconfig.json:/app/tsconfig.json:ro
+  #     - ./tsconfig.build.json:/app/tsconfig.build.json:ro
+  #     - ./nest-cli.json:/app/nest-cli.json:ro
+  #   command: ["sh","-lc","npm run start:dev"]
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+volumes:
+  local_pgdata:

@@ -1,0 +1,53 @@
+version: "3.8"
+services:
+
+  db:
+    image: postgres
+    restart: always
+    container_name: gv_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: admin
+      POSTGRES_USER: admin
+    volumes:
+      - local_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gv_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+    ports:
+      - "8000:8000"
+    command: ["dumb-init","node","dist/src/main.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/docs > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s

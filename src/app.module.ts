@@ -1,11 +1,26 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { GitEngineModule } from './modules/git-engine/git-engine.module';
+import { ConfigModule } from '@nestjs/config';
+import { LessonModule } from './modules/lessons/lesson.module';
+import configuration from './config/configuration';
+import { DatabaseModule } from './database/database.module';
+import { envValidationSchema } from './config/validation';
 
 @Module({
-  imports: [GitEngineModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+      envFilePath: [
+        `.env.${process.env.NODE_ENV ?? 'development'}`,
+        '.env',
+        '.env.local',
+      ],
+      validationSchema: envValidationSchema,
+    }),
+    DatabaseModule,
+    LessonModule
+  ],
+  controllers: [],
+  providers: [],
 })
-export class AppModule {}
+export class AppModule { }
