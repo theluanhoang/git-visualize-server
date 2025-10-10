@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Lesson } from './lesson.entity';
 import { Like, Repository } from 'typeorm';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
+import { UpdateLessonDTO } from './dto/update-lesson.dto';
 
 @Injectable()
 export class LessonService {
@@ -19,8 +20,6 @@ export class LessonService {
         if (slug) where.slug = slug;
         if (status) where.status = status;
         if (q) {
-            // For simple search: title or description contains q
-            // Using find with OR requires QueryBuilder; use it for combined search
             const qb = this.lessonRepository.createQueryBuilder('lesson');
             if (id) qb.andWhere('lesson.id = :id', { id });
             if (slug) qb.andWhere('lesson.slug = :slug', { slug });
@@ -41,5 +40,14 @@ export class LessonService {
 
     async createLesson(createLessonDTO: CreateLessonDTO): Promise<Lesson> {
         return this.lessonRepository.save(createLessonDTO);
+    }
+
+    async updateLesson(id: string, dto: UpdateLessonDTO): Promise<Lesson> {
+        const existing = await this.lessonRepository.findOne({ where: { id } });
+        if (!existing) {
+            throw new NotFoundException('Lesson not found');
+        }
+        const merged = this.lessonRepository.merge(existing, dto);
+        return this.lessonRepository.save(merged);
     }
 }

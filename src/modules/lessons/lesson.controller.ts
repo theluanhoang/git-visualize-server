@@ -1,11 +1,12 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query } from '@nestjs/common';
 import { LessonService } from './lesson.service';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
 import { ApiBadRequestResponse, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Lesson } from './lesson.entity';
+import { UpdateLessonDTO } from './dto/update-lesson.dto';
 
-@ApiTags('lessons')
+@ApiTags('Lessons')
 @Controller('lesson')
 export class LessonController {
     constructor(private readonly lessonService: LessonService) {}
@@ -22,5 +23,13 @@ export class LessonController {
     @ApiBadRequestResponse({ description: 'Validation failed' })
     async createLesson(@Body() createGitTheoryDto: CreateLessonDTO) {
         return this.lessonService.createLesson(createGitTheoryDto);
+    }
+
+    @Patch(':id')
+    @ApiOperation({ summary: 'Update a lesson by id' })
+    @ApiOkResponse({ description: 'Lesson updated', type: Lesson })
+    @ApiBadRequestResponse({ description: 'Validation failed' })
+    async updateLesson(@Param('id') id: string, @Body() dto: UpdateLessonDTO) {
+        return this.lessonService.updateLesson(id, dto);
     }
 }
