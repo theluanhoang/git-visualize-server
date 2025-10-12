@@ -14,10 +14,8 @@ import { ConfigService } from '@nestjs/config';
         password: config.getOrThrow<string>('database.password'),
         database: config.getOrThrow<string>('database.database'),
         autoLoadEntities: true,
-        synchronize: false,
-        migrationsRun: config.get<boolean>('database.migrationsRun'),
+        synchronize: true, // Tự động tạo bảng từ entities
         logging: config.get<boolean>('database.logging'),
-        migrations: ['dist/migrations/*.js'],
         // Keep snake_case naming if needed later via custom naming strategy
       }),
     }),

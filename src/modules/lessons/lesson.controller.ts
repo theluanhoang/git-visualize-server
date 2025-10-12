@@ -5,6 +5,7 @@ import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
 import { ApiBadRequestResponse, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Lesson } from './lesson.entity';
 import { UpdateLessonDTO } from './dto/update-lesson.dto';
+import { GetLessonsResponse, LessonWithPractices } from './types';
 
 @ApiTags('Lessons')
 @Controller('lesson')
@@ -13,7 +14,7 @@ export class LessonController {
 
     @Get()
     @ApiOkResponse({ description: 'List lessons with pagination' })
-    async getLessons(@Query() query: GetLessonsQueryDto) {
+    async getLessons(@Query() query: GetLessonsQueryDto): Promise<GetLessonsResponse<Lesson | LessonWithPractices>> {
         return this.lessonService.getLessons(query);
     }
 

@@ -1,41 +1,79 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Lesson } from './lesson.entity';
 import { Like, Repository } from 'typeorm';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
 import { UpdateLessonDTO } from './dto/update-lesson.dto';
+import { PracticeAggregateService } from '../practice/services/practice-aggregate.service';
+import { 
+  LessonWithPractices, 
+  GetLessonsResponse,
+} from './types';
 
 @Injectable()
 export class LessonService {
     constructor(
         @InjectRepository(Lesson)
         private readonly lessonRepository: Repository<Lesson>,
+        @Inject(forwardRef(() => PracticeAggregateService))
+        private readonly practiceAggregateService: PracticeAggregateService,
     ) {}
 
-    async getLessons(query: GetLessonsQueryDto): Promise<{ data: Lesson[]; total: number; limit: number; offset: number; }>{
-        const { limit = 20, offset = 0, id, slug, status, q } = query;
-        const where: Record<string, any> = {};
-        if (id) where.id = id;
-        if (slug) where.slug = slug;
-        if (status) where.status = status;
+    async getLessons(query: GetLessonsQueryDto): Promise<GetLessonsResponse<Lesson | LessonWithPractices>>{
+        const { limit = 20, offset = 0, id, slug, status, q, includePractices = false } = query;
+        
+        // Build query based on search parameter
+        let lessons: Lesson[];
+        let total: number;
+        
         if (q) {
+            // Use query builder for search
             const qb = this.lessonRepository.createQueryBuilder('lesson');
             if (id) qb.andWhere('lesson.id = :id', { id });
             if (slug) qb.andWhere('lesson.slug = :slug', { slug });
             if (status) qb.andWhere('lesson.status = :status', { status });
             qb.andWhere('(lesson.title ILIKE :q OR lesson.description ILIKE :q)', { q: `%${q}%` });
             qb.skip(offset).take(limit).orderBy('lesson.createdAt', 'DESC');
-            const [data, total] = await qb.getManyAndCount();
-            return { data, total, limit, offset };
+            [lessons, total] = await qb.getManyAndCount();
+        } else {
+            // Use simple findAndCount for non-search queries
+            const where: Record<string, any> = {};
+            if (id) where.id = id;
+            if (slug) where.slug = slug;
+            if (status) where.status = status;
+            
+            [lessons, total] = await this.lessonRepository.findAndCount({
+                where,
+                skip: offset,
+                take: limit,
+                order: { createdAt: 'DESC' },
+            });
         }
-        const [data, total] = await this.lessonRepository.findAndCount({
-            where,
-            skip: offset,
-            take: limit,
-            order: { createdAt: 'DESC' },
-        });
-        return { data, total, limit, offset };
+
+        // Handle includePractices logic (DRY - no duplication)
+        if (includePractices) {
+            const data = await this.fetchPracticesForLessons(lessons);
+            return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices>;
+        }
+
+        return { data: lessons, total, limit, offset } as GetLessonsResponse<Lesson>;
+    }
+
+    /**
+     * Helper method to fetch practices for lessons
+     * Clean and maintainable approach
+     */
+    private async fetchPracticesForLessons(lessons: Lesson[]): Promise<LessonWithPractices[]> {
+        return Promise.all(
+            lessons.map(async (lesson) => {
+                const practices = await this.practiceAggregateService.getPracticesByLessonSlug(lesson.slug);
+                return {
+                    ...lesson,
+                    practices: practices
+                } as LessonWithPractices;
+            })
+        );
     }
 
     async createLesson(createLessonDTO: CreateLessonDTO): Promise<Lesson> {

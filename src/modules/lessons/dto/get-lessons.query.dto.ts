@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsPositive, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ELessonStatus } from '../lesson.interface';
 
 export class GetLessonsQueryDto {
@@ -38,6 +38,11 @@ export class GetLessonsQueryDto {
     @IsString()
     @IsOptional()
     q?: string;
+
+    @ApiPropertyOptional({ description: 'Include practice content', default: false })
+    @Type(() => Boolean)
+    @IsOptional()
+    includePractices?: boolean = false;
 }
 
 

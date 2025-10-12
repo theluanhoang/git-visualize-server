@@ -1,4 +1,4 @@
-import { CommonEntity } from "src/shared/entities/common.entity";
+import { CommonEntity } from "../../shared/entities/common.entity";
 import { Column, Entity } from "typeorm";
 import { ELessonStatus } from "./lesson.interface";
 
