@@ -1,13 +1,31 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { generateCommitId } from './git-engine.utils';
-import { ETypeGitObject, GitCommandResponse, IBranch, ICommit, IRepositoryState } from './git-engine.interface';
+import { ETypeGitObject, GitCommandResponse, ICommit, IRepositoryState, PracticeValidationResponse, RepositoryDifference } from './git-engine.interface';
+import { Practice } from '../practice/entities/practice.entity';
 
 @Injectable()
 export class GitEngineService {
     private repositoryState: IRepositoryState | null = null;
     private knownCommands = ['clear', 'init', 'commit', 'branch', 'checkout', 'switch', 'status', 'log', 'tag'];
 
-    constructor() { }
+    constructor(
+        @InjectRepository(Practice)
+        private practiceRepository: Repository<Practice>,
+    ) { }
+
+    // Stateless wrapper: run a command against a provided repository state
+    executeCommandWithState(state: IRepositoryState | null | undefined, command: string): GitCommandResponse | null {
+        const prev = this.repositoryState;
+        this.repositoryState = state ?? null;
+        try {
+            const result = this.executeCommand(command);
+            return result;
+        } finally {
+            this.repositoryState = prev;
+        }
+    }
 
     executeCommand(command: string): GitCommandResponse | null {
         const tokens = command.trim().split(/\s+/);
@@ -157,7 +175,34 @@ export class GitEngineService {
         if (messageIndex === -1 || !args[messageIndex + 1]) {
             return this.response("error: commit message not provided (use -m \"msg\")", false);
         }
-        const message = args.slice(messageIndex + 1).join(" ");
+
+        // Require quoted message after -m to match expected training UX
+        // Accept either double or single quotes, and support spaces inside
+        const firstToken = args[messageIndex + 1];
+        const quoteChar = firstToken.startsWith('"') ? '"' : (firstToken.startsWith("'") ? "'" : null);
+        if (!quoteChar) {
+            return this.response("error: commit message must be quoted (use -m \"your message\")", false);
+        }
+
+        let collected: string[] = [];
+        let endIndex = -1;
+        for (let i = messageIndex + 1; i < args.length; i++) {
+            collected.push(args[i]);
+            if (args[i].endsWith(quoteChar)) {
+                endIndex = i;
+                break;
+            }
+        }
+
+        if (endIndex === -1) {
+            return this.response("error: unterminated quoted commit message", false);
+        }
+
+        // Join and strip surrounding quotes
+        let message = collected.join(' ');
+        if (message.length >= 2 && message.startsWith(quoteChar) && message.endsWith(quoteChar)) {
+            message = message.slice(1, -1);
+        }
 
         const commitId = generateCommitId();
         const newCommit: ICommit = {
@@ -408,5 +453,227 @@ export class GitEngineService {
         }
 
         return dp[a.length][b.length];
+    }
+
+    async validatePractice(practiceId: string, userRepositoryState: IRepositoryState): Promise<PracticeValidationResponse> {
+        try {
+            // Get practice with goal repository state
+            const practice = await this.practiceRepository.findOne({
+                where: { id: practiceId },
+                select: ['id', 'title', 'goalRepositoryState']
+            });
+
+            if (!practice) {
+                return {
+                    success: false,
+                    isCorrect: false,
+                    score: 0,
+                    feedback: 'Practice not found',
+                    differences: [],
+                    message: 'Practice not found'
+                };
+            }
+
+            if (!practice.goalRepositoryState) {
+                return {
+                    success: false,
+                    isCorrect: false,
+                    score: 0,
+                    feedback: 'No goal repository state defined for this practice',
+                    differences: [],
+                    message: 'No goal repository state defined for this practice'
+                };
+            }
+
+            const goalState = practice.goalRepositoryState;
+            const differences = this.compareRepositoryStates(goalState, userRepositoryState);
+            const isCorrect = differences.length === 0;
+            const score = this.calculateScore(goalState, userRepositoryState);
+
+            let feedback = '';
+            let message = '';
+
+            if (isCorrect) {
+                feedback = 'Perfect! Your repository state matches the goal exactly.';
+                message = 'Congratulations! You have successfully completed the practice.';
+            } else {
+                feedback = `Found ${differences.length} difference(s) between your repository state and the goal.`;
+                message = 'Your repository state is close but not exactly matching the goal.';
+            }
+
+            return {
+                success: true,
+                isCorrect,
+                score,
+                feedback,
+                differences,
+                message
+            };
+
+        } catch (error) {
+            console.error('Error validating practice:', error);
+            return {
+                success: false,
+                isCorrect: false,
+                score: 0,
+                feedback: 'An error occurred while validating your practice',
+                differences: [],
+                message: 'Validation failed due to an internal error'
+            };
+        }
+    }
+
+    private compareRepositoryStates(goalState: IRepositoryState, userState: IRepositoryState): RepositoryDifference[] {
+        const differences: RepositoryDifference[] = [];
+
+        // Compare commits
+        const goalCommits = goalState.commits || [];
+        const userCommits = userState.commits || [];
+
+        if (goalCommits.length !== userCommits.length) {
+            differences.push({
+                type: 'commit',
+                field: 'count',
+                expected: goalCommits.length,
+                actual: userCommits.length,
+                description: `Expected ${goalCommits.length} commits, but found ${userCommits.length}`
+            });
+        }
+
+        // Order-insensitive commit comparison based on messages (multiset)
+        const toFrequencyMap = (arr: string[]) => {
+            const map = new Map<string, number>();
+            for (const s of arr) {
+                map.set(s, (map.get(s) || 0) + 1);
+            }
+            return map;
+        };
+
+        const goalMessages = goalCommits.map(c => c.message);
+        const userMessages = userCommits.map(c => c.message);
+
+        const goalFreq = toFrequencyMap(goalMessages);
+        const userFreq = toFrequencyMap(userMessages);
+
+        // Missing messages (in goal but not in user or with fewer occurrences)
+        for (const [msg, need] of goalFreq.entries()) {
+            const have = userFreq.get(msg) || 0;
+            if (have < need) {
+                const deficit = need - have;
+                differences.push({
+                    type: 'commit',
+                    field: 'missing_messages',
+                    expected: msg,
+                    actual: null,
+                    description: `Missing ${deficit} commit(s) with message: "${msg}"`
+                });
+            }
+        }
+
+        // Extra messages (in user but not in goal or with more occurrences)
+        for (const [msg, have] of userFreq.entries()) {
+            const need = goalFreq.get(msg) || 0;
+            if (have > need) {
+                const extra = have - need;
+                differences.push({
+                    type: 'commit',
+                    field: 'extra_messages',
+                    expected: null,
+                    actual: msg,
+                    description: `Found ${extra} extra commit(s) with message: "${msg}"`
+                });
+            }
+        }
+
+        // Compare branches
+        const goalBranches = goalState.branches || [];
+        const userBranches = userState.branches || [];
+
+        if (goalBranches.length !== userBranches.length) {
+            differences.push({
+                type: 'branch',
+                field: 'count',
+                expected: goalBranches.length,
+                actual: userBranches.length,
+                description: `Expected ${goalBranches.length} branches, but found ${userBranches.length}`
+            });
+        }
+
+        // Compare branch names
+        const goalBranchNames = goalBranches.map(b => b.name).sort();
+        const userBranchNames = userBranches.map(b => b.name).sort();
+
+        if (JSON.stringify(goalBranchNames) !== JSON.stringify(userBranchNames)) {
+            differences.push({
+                type: 'branch',
+                field: 'names',
+                expected: goalBranchNames,
+                actual: userBranchNames,
+                description: 'Branch names do not match'
+            });
+        }
+
+        // Compare head
+        const goalHead = goalState.head;
+        const userHead = userState.head;
+
+        if ((goalHead?.type ?? null) !== (userHead?.type ?? null)) {
+            differences.push({
+                type: 'head',
+                field: 'type',
+                expected: goalHead?.type ?? null,
+                actual: userHead?.type ?? null,
+                description: 'HEAD type does not match'
+            });
+        }
+
+        if ((goalHead?.ref ?? null) !== (userHead?.ref ?? null)) {
+            differences.push({
+                type: 'head',
+                field: 'ref',
+                expected: goalHead?.ref ?? null,
+                actual: userHead?.ref ?? null,
+                description: 'HEAD reference does not match'
+            });
+        }
+
+        // Compare tags
+        const goalTags = goalState.tags || [];
+        const userTags = userState.tags || [];
+
+        if (goalTags.length !== userTags.length) {
+            differences.push({
+                type: 'tag',
+                field: 'count',
+                expected: goalTags.length,
+                actual: userTags.length,
+                description: `Expected ${goalTags.length} tags, but found ${userTags.length}`
+            });
+        }
+
+        return differences;
+    }
+
+    private calculateScore(goalState: IRepositoryState, userState: IRepositoryState): number {
+        const differences = this.compareRepositoryStates(goalState, userState);
+        
+        if (differences.length === 0) {
+            return 100;
+        }
+
+        // Calculate score based on the number of differences
+        // This is a simplified scoring algorithm
+        const totalChecks = 4; // commits, branches, head, tags
+        const penaltyPerDifference = 100 / (totalChecks * 2); // Max 50% penalty per category
+        
+        let penalty = 0;
+        const categories = new Set(differences.map(d => d.type));
+        
+        for (const category of categories) {
+            const categoryDifferences = differences.filter(d => d.type === category);
+            penalty += Math.min(categoryDifferences.length * penaltyPerDifference, 50);
+        }
+
+        return Math.max(0, 100 - penalty);
     }
 }

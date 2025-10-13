@@ -1,11 +1,31 @@
 export interface GitCommandRequest {
   command: string;
+  repositoryState?: IRepositoryState | null;
 }
 
 export interface GitCommandResponse {
   success: boolean;
   output: string;       
   repositoryState: IRepositoryState | null;
+}
+
+export interface PracticeValidationResponse {
+  success: boolean;
+  isCorrect: boolean;
+  score: number;
+  feedback: string;
+  differences: RepositoryDifference[];
+  message: string;
+}
+
+export type DifferenceValue = string | number | boolean | null | string[];
+
+export interface RepositoryDifference {
+  type: 'commit' | 'branch' | 'tag' | 'head';
+  field: string;
+  expected: DifferenceValue;
+  actual: DifferenceValue;
+  description: string;
 }
 
 export enum ETypeGitObject {
