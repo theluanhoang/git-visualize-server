@@ -22,6 +22,12 @@ export default () => ({
     synchronize: (process.env.TYPEORM_SYNCHRONIZE ?? 'false') === 'true',
     migrationsRun: (process.env.TYPEORM_MIGRATIONS_RUN ?? 'false') === 'true',
   },
+  auth: {
+    jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret',
+    jwtRefreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret',
+    accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
+    refreshTtl: process.env.JWT_REFRESH_TTL ?? '14d',
+  },
 });
 
 

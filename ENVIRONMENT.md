@@ -25,6 +25,12 @@ DB_NAME=postgres
 # TypeORM
 TYPEORM_LOGGING=false
 TYPEORM_SYNCHRONIZE=false
+
+# Auth (JWT)
+JWT_ACCESS_SECRET=your-access-secret
+JWT_REFRESH_SECRET=your-refresh-secret
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=14d
 ```
 
 
