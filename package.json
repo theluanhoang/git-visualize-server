@@ -23,6 +23,8 @@
     "seed:full": "ts-node -r tsconfig-paths/register src/scripts/run-full-seed.ts",
     "test:full-api": "ts-node -r tsconfig-paths/register src/scripts/test-full-api.ts",
     "seed:complete": "ts-node -r tsconfig-paths/register src/scripts/seed-complete-lesson.ts",
+    "seed:git-engine": "ts-node -r tsconfig-paths/register src/scripts/seed-git-engine-lesson.ts",
+    "test:goal": "ts-node -r tsconfig-paths/register src/scripts/test-goal-feature.ts",
     "test:complete": "ts-node -r tsconfig-paths/register src/scripts/test-complete-system.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

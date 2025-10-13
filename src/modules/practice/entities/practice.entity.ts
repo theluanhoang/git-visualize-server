@@ -6,6 +6,7 @@ import { PracticeHint } from "./practice-hint.entity";
 import { PracticeExpectedCommand } from "./practice-expected-command.entity";
 import { PracticeValidationRule } from "./practice-validation-rule.entity";
 import { PracticeTag } from "./practice-tag.entity";
+import type { IRepositoryState } from "../../git-engine/git-engine.interface";
 
 @Entity('practice')
 export class Practice extends CommonEntity {
@@ -39,6 +40,9 @@ export class Practice extends CommonEntity {
 
     @Column({ default: 0 })
     completions: number;
+
+    @Column('jsonb', { nullable: true })
+    goalRepositoryState: IRepositoryState; // Target repository state for visualization
 
     // Relations
     @OneToMany(() => PracticeInstruction, instruction => instruction.practice, { cascade: true })
