@@ -28,6 +28,23 @@ export default () => ({
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '14d',
   },
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      callbackUrl: process.env.GOOGLE_CALLBACK_URL ?? 'http://localhost:8000/api/v1/auth/oauth/google/callback',
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID ?? '',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+      callbackUrl: process.env.GITHUB_CALLBACK_URL ?? 'http://localhost:8000/api/v1/auth/oauth/github/callback',
+    },
+    facebook: {
+      clientId: process.env.FACEBOOK_CLIENT_ID ?? '',
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET ?? '',
+      callbackUrl: process.env.FACEBOOK_CALLBACK_URL ?? 'http://localhost:8000/api/v1/auth/oauth/facebook/callback',
+    },
+  },
 });
 
 

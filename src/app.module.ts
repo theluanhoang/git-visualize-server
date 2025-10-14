@@ -7,6 +7,8 @@ import { DatabaseModule } from './database/database.module';
 import { envValidationSchema } from './config/validation';
 import { GitEngineModule } from './modules/git-engine/git-engine.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UserModule } from './modules/users/user.module';
+import { SessionModule } from './modules/sessions/session.module';
 
 @Module({
   imports: [
@@ -24,7 +26,9 @@ import { AuthModule } from './modules/auth/auth.module';
     LessonModule,
     PracticeModule,
     GitEngineModule,
-    AuthModule
+    AuthModule,
+    UserModule,
+    SessionModule
   ],
   controllers: [],
   providers: [],

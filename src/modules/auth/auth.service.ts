@@ -1,52 +1,62 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
-import { User } from '../users/user.entity';
-import { Session } from './session.entity'
+import { UserService } from '../users/user.service';
+import { SessionService } from '../sessions/session.service';
 import * as argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { SessionType } from '../sessions/session.interface';
+import { EUserRole } from '../users/user.interface';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(Session) private readonly sessionRepository: Repository<Session>,
+    private readonly userService: UserService,
+    private readonly sessionService: SessionService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
 
   async register(email: string, password: string) {
-    const exists = await this.userRepository.findOne({ where: { email } });
+    const exists = await this.userService.findByEmail(email);
     if (exists) throw new ConflictException('Email already registered');
 
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
-    const user = this.userRepository.create({ email, passwordHash, role: 'USER' });
-    await this.userRepository.save(user);
+    const user = await this.userService.create({ 
+      email, 
+      passwordHash, 
+      role: EUserRole.USER,
+      isActive: true 
+    });
+    
     return { id: user.id, email: user.email, role: user.role };
   }
 
   async login(email: string, password: string, userAgent?: string, ip?: string) {
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.userService.findByEmail(email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user.passwordHash) {
+      return false;
+    }
+    
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
     const tokens = await this.generateTokens(user);
     const refreshTokenHash = await argon2.hash(tokens.refreshToken, { type: argon2.argon2id });
-    const session = this.sessionRepository.create({
+    
+    await this.sessionService.createSession({
       userId: user.id,
       refreshTokenHash,
-      userAgent: userAgent || null,
-      ip: ip || null,
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      revokedAt: null,
+      userAgent: userAgent || undefined,
+      ip: ip || undefined,
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+      sessionType: SessionType.PASSWORD,
     });
-    await this.sessionRepository.save(session);
+    
     return { user: { id: user.id, email: user.email, role: user.role }, ...tokens };
   }
 
-  private async generateTokens(user: User) {
+  private async generateTokens(user: { id: string; email: string; role: string }) {
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, role: user.role },
       { expiresIn: this.config.get('auth.accessTtl', '15m'), secret: this.config.get('auth.jwtAccessSecret') },
@@ -59,41 +69,32 @@ export class AuthService {
   }
 
   async refresh(userId: string, refreshToken: string, userAgent?: string, ip?: string) {
-    const activeSessions = await this.sessionRepository.find({ where: { userId, revokedAt: IsNull() } });
-    const match = await Promise.any(
-      activeSessions.map(async (s) => (await argon2.verify(s.refreshTokenHash, refreshToken)) ? s : null)
-    ).catch(() => null);
-    if (!match) throw new UnauthorizedException('Invalid refresh');
+    const session = await this.sessionService.findSessionByRefreshToken(userId, refreshToken);
+    if (!session) throw new UnauthorizedException('Invalid refresh token');
 
-    match.revokedAt = new Date();
-    await this.sessionRepository.save(match);
+    await this.sessionService.revokeSession(session.id);
 
-    const user = await this.userRepository.findOneByOrFail({ id: userId });
+    const user = await this.userService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
     const tokens = await this.generateTokens(user);
     const newHash = await argon2.hash(tokens.refreshToken, { type: argon2.argon2id });
-    const session = this.sessionRepository.create({
+    
+    await this.sessionService.createSession({
       userId: user.id,
       refreshTokenHash: newHash,
-      userAgent: userAgent || null,
-      ip: ip || null,
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      revokedAt: null,
+      userAgent: userAgent || undefined,
+      ip: ip || undefined,
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+      sessionType: SessionType.PASSWORD,
     });
-    await this.sessionRepository.save(session);
+    
     return tokens;
   }
 
   async logout(userId: string, refreshToken: string) {
-    const sessions = await this.sessionRepository.find({ where: { userId, revokedAt: IsNull() } });
-    for (const s of sessions) {
-      const ok = await argon2.verify(s.refreshTokenHash, refreshToken).catch(() => false);
-      if (ok) {
-        s.revokedAt = new Date();
-        await this.sessionRepository.save(s);
-        return { success: true };
-      }
-    }
-    return { success: true };
+    const success = await this.sessionService.revokeSessionByRefreshToken(userId, refreshToken);
+    return { success };
   }
 }
 

@@ -4,9 +4,10 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { AuthenticatedRequestDto } from './dto/authenticated-request.dto';
 
 @ApiTags('Auth')
-@Controller('api/v1/auth')
+@Controller('/auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
@@ -48,7 +49,8 @@ export class AuthController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user from access token' })
-  me(@Req() req: any) {
+  @ApiResponse({ status: 200, description: 'User information retrieved successfully' })
+  me(@Req() req: AuthenticatedRequestDto) {
     return req.user || null;
   }
 }
