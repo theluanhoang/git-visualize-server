@@ -1,4 +1,4 @@
-import { Controller, Get, Put, UseGuards, Req, Body, Param } from '@nestjs/common';
+import { Controller, Get, Put, UseGuards, Req, Body, Param, Header } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserService } from './user.service';
@@ -17,6 +17,9 @@ export class UserController {
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully', type: UserResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @Header('Expires', '0')
   async getCurrentUser(@Req() req: AuthenticatedRequestDto): Promise<UserResponseDto> {
     const userId = req.user?.sub;
     return this.userService.getCurrentUserProfile(userId);
