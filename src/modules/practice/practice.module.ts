@@ -13,6 +13,8 @@ import { PracticeInstructionService } from './services/practice-instruction.serv
 import { PracticeHintService } from './services/practice-hint.service';
 import { PracticeExpectedCommandService } from './services/practice-expected-command.service';
 import { PracticeValidationRuleService } from './services/practice-validation-rule.service';
+import { PracticeRepositoryState } from './entities/practice-repository-state.entity';
+import { PracticeRepositoryStateService } from './services/practice-repository-state.service';
 import { PracticeTagService } from './services/practice-tag.service';
 
 @Module({
@@ -24,11 +26,11 @@ import { PracticeTagService } from './services/practice-tag.service';
       PracticeExpectedCommand,
       PracticeValidationRule,
       PracticeTag,
+      PracticeRepositoryState,
     ])
   ],
   controllers: [PracticeController],
   providers: [
-    // SOLID-based services
     PracticeAggregateService,
     PracticeEntityService,
     PracticeInstructionService,
@@ -36,9 +38,10 @@ import { PracticeTagService } from './services/practice-tag.service';
     PracticeExpectedCommandService,
     PracticeValidationRuleService,
     PracticeTagService,
+    PracticeRepositoryStateService,
   ],
   exports: [
-    PracticeAggregateService, // Main service export
+    PracticeAggregateService, 
   ],
 })
 export class PracticeModule {}
