@@ -42,6 +42,22 @@ export class RecentUserDto {
   @ApiProperty({ description: 'Number of lessons completed' })
   @IsNumber()
   lessonsCompleted: number;
+
+  @ApiProperty({ description: 'Total sessions' })
+  @IsNumber()
+  totalSessions: number;
+
+  @ApiProperty({ description: 'Active sessions' })
+  @IsNumber()
+  activeSessions: number;
+
+  @ApiProperty({ description: 'OAuth sessions' })
+  @IsNumber()
+  oauthSessions: number;
+
+  @ApiProperty({ description: 'Last login date', required: false })
+  @IsDateString()
+  lastLoginAt?: Date | null;
 }
 
 export class UsersResponseDto {

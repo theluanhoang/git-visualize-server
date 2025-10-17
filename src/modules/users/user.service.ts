@@ -216,14 +216,22 @@ export class UserService {
       
       const totalPages = Math.ceil(total / limit);
       
-      const userDtos = users.map(user => ({
-        id: user.id,
-        name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
-        email: user.email,
-        role: user.role,
-        status: user.isActive ? 'active' : 'inactive',
-        joinedAt: user.createdAt.toISOString(),
-        lessonsCompleted: 0 
+      const userDtos = await Promise.all(users.map(async (user) => {
+        const { total, active, oauth } = await this.sessionService.getSessionStats(user.id);
+        const lastLoginAt = await this.sessionService.getLastLoginAt(user.id);
+        return {
+          id: user.id,
+          name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+          email: user.email,
+          role: user.role,
+          status: user.isActive ? 'active' : 'inactive',
+          joinedAt: user.createdAt.toISOString(),
+          lessonsCompleted: 0,
+          totalSessions: total,
+          activeSessions: active,
+          oauthSessions: oauth,
+          lastLoginAt,
+        } as any;
       }));
       
       return {
