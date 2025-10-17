@@ -250,4 +250,15 @@ export class SessionService {
       revoked: total - active,
     };
   }
+
+  async getLastLoginAt(userId: string): Promise<Date | null> {
+    const row = await this.sessionRepository
+      .createQueryBuilder('s')
+      .select('s.createdAt', 'createdAt')
+      .where('s.userId = :userId', { userId })
+      .orderBy('s.createdAt', 'DESC')
+      .limit(1)
+      .getRawOne<{ createdAt?: Date }>();
+    return row?.createdAt ?? null;
+  }
 }

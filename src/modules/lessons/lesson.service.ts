@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Lesson } from './lesson.entity';
-import { Like, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
 import { UpdateLessonDTO } from './dto/update-lesson.dto';
@@ -20,15 +20,30 @@ export class LessonService {
         private readonly practiceAggregateService: PracticeAggregateService,
     ) {}
 
+
+    async getLessonsAggregateStats(): Promise<{ totalLessons: number; totalViews: number }>{
+        const qb = this.lessonRepository.createQueryBuilder('lesson');
+        const countRow = await qb
+            .clone()
+            .select('COUNT(lesson.id)', 'count')
+            .getRawOne<{ count: string }>();
+        const sumRow = await qb
+            .clone()
+            .select('COALESCE(SUM(lesson.views), 0)', 'sum')
+            .getRawOne<{ sum: string }>();
+        return {
+            totalLessons: Number(countRow?.count ?? 0),
+            totalViews: Number(sumRow?.sum ?? 0),
+        };
+    }
+
     async getLessons(query: GetLessonsQueryDto): Promise<GetLessonsResponse<Lesson | LessonWithPractices>>{
         const { limit = 20, offset = 0, id, slug, status, q, includePractices = false } = query;
         
-        // Build query based on search parameter
         let lessons: Lesson[];
         let total: number;
         
         if (q) {
-            // Use query builder for search
             const qb = this.lessonRepository.createQueryBuilder('lesson');
             if (id) qb.andWhere('lesson.id = :id', { id });
             if (slug) qb.andWhere('lesson.slug = :slug', { slug });
@@ -37,7 +52,6 @@ export class LessonService {
             qb.skip(offset).take(limit).orderBy('lesson.createdAt', 'DESC');
             [lessons, total] = await qb.getManyAndCount();
         } else {
-            // Use simple findAndCount for non-search queries
             const where: Record<string, any> = {};
             if (id) where.id = id;
             if (slug) where.slug = slug;
@@ -51,7 +65,6 @@ export class LessonService {
             });
         }
 
-        // Handle includePractices logic (DRY - no duplication)
         if (includePractices) {
             const data = await this.fetchPracticesForLessons(lessons);
             return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices>;
@@ -60,10 +73,7 @@ export class LessonService {
         return { data: lessons, total, limit, offset } as GetLessonsResponse<Lesson>;
     }
 
-    /**
-     * Helper method to fetch practices for lessons
-     * Clean and maintainable approach
-     */
+
     private async fetchPracticesForLessons(lessons: Lesson[]): Promise<LessonWithPractices[]> {
         return Promise.all(
             lessons.map(async (lesson) => {
