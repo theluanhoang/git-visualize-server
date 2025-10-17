@@ -9,7 +9,8 @@ import { GitEngineModule } from './modules/git-engine/git-engine.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/users/user.module';
 import { SessionModule } from './modules/sessions/session.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { MailModule } from './modules/mail/mail.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     AuthModule,
     UserModule,
     SessionModule,
-    DashboardModule
+    MailModule,
+    AdminModule
   ],
   controllers: [],
   providers: [],

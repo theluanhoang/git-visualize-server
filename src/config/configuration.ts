@@ -45,6 +45,14 @@ export default () => ({
       callbackUrl: process.env.FACEBOOK_CALLBACK_URL ?? 'http://localhost:8000/api/v1/auth/oauth/facebook/callback',
     },
   },
+  mail: {
+    host: process.env.MAIL_HOST ?? '',
+    port: parseInt(process.env.MAIL_PORT ?? '587', 10),
+    secure: (process.env.MAIL_SECURE ?? 'false') === 'true',
+    user: process.env.MAIL_USER ?? '',
+    pass: process.env.MAIL_PASS ?? '',
+    from: process.env.MAIL_FROM ?? process.env.MAIL_USER ?? '',
+  },
 });
 
 

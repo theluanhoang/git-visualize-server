@@ -19,6 +19,13 @@ export const envValidationSchema = Joi.object({
 
   TYPEORM_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
   TYPEORM_SYNCHRONIZE: Joi.boolean().truthy('true').falsy('false').default(false),
+
+  MAIL_HOST: Joi.string().allow(''),
+  MAIL_PORT: Joi.number().default(587),
+  MAIL_SECURE: Joi.boolean().truthy('true').falsy('false').default(false),
+  MAIL_USER: Joi.string().allow(''),
+  MAIL_PASS: Joi.string().allow(''),
+  MAIL_FROM: Joi.string().allow(''),
 });
 
 
