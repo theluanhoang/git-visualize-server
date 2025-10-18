@@ -32,7 +32,8 @@ export class PracticeEntityService {
             difficulty: createPracticeDTO.difficulty || 1,
             estimatedTime: createPracticeDTO.estimatedTime || 0,
             isActive: createPracticeDTO.isActive !== undefined ? createPracticeDTO.isActive : true,
-            order: createPracticeDTO.order || 0
+            order: createPracticeDTO.order || 0,
+            goalRepositoryState: createPracticeDTO.goalRepositoryState
         });
 
         return practiceRepo.save(practice);
@@ -59,7 +60,8 @@ export class PracticeEntityService {
             difficulty: updatePracticeDTO.difficulty,
             estimatedTime: updatePracticeDTO.estimatedTime,
             isActive: updatePracticeDTO.isActive,
-            order: updatePracticeDTO.order
+            order: updatePracticeDTO.order,
+            goalRepositoryState: updatePracticeDTO.goalRepositoryState
         });
 
         return practiceRepo.save(practice);

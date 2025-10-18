@@ -1,6 +1,7 @@
 import { IsString, IsNumber, IsBoolean, IsOptional, IsArray, ValidateNested, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { IRepositoryState } from '../../git-engine/git-engine.interface';
 
 export class CreatePracticeInstructionDTO {
     @ApiProperty({
@@ -249,4 +250,11 @@ export class CreatePracticeDTO {
     @ValidateNested({ each: true })
     @Type(() => CreatePracticeTagDTO)
     tags?: CreatePracticeTagDTO[];
+
+    @ApiPropertyOptional({
+        description: 'Goal repository state for visualization',
+        example: { commits: [], branches: [], tags: [], head: null }
+    })
+    @IsOptional()
+    goalRepositoryState?: IRepositoryState;
 }

@@ -238,6 +238,9 @@ export class PracticeAggregateService implements IPracticeService {
         
         const queryBuilder = this.dataSource.createQueryBuilder(Practice, 'practice');
 
+        // Add distinct to avoid duplicate rows from joins
+        queryBuilder.distinct(true);
+
         // Add relations if needed
         if (includeRelations) {
             queryBuilder

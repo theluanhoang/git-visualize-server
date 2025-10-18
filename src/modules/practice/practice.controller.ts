@@ -7,6 +7,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { RepositoryStateDto } from './dto/repository-state.dto';
 import { PracticeRepositoryStateService } from './services/practice-repository-state.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { ForAdmin } from '../auth/decorators/roles.decorator';
 import { AuthenticatedRequestDto } from '../auth/dto/authenticated-request.dto';
 
 @ApiTags('Practices')
@@ -25,18 +27,26 @@ export class PracticeController {
     }
 
     @Post()
-    @ApiOperation({ summary: 'Create a new practice' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ForAdmin()
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a new practice (Admin only)' })
     @ApiResponse({ status: 201, description: 'The created practice' })
     @ApiResponse({ status: 400, description: 'Invalid input' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
     async createPractice(@Body() createPracticeDTO: CreatePracticeDTO) {
         return this.practiceAggregateService.createPractice(createPracticeDTO);
     }
 
     @Put(':id')
-    @ApiOperation({ summary: 'Update an existing practice' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ForAdmin()
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update an existing practice (Admin only)' })
     @ApiResponse({ status: 200, description: 'The updated practice' })
     @ApiResponse({ status: 404, description: 'Practice not found' })
     @ApiResponse({ status: 400, description: 'Invalid input' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
     async updatePractice(
         @Param('id') id: string,
         @Body() updatePracticeDTO: UpdatePracticeDTO
@@ -45,9 +55,13 @@ export class PracticeController {
     }
 
     @Delete(':id')
-    @ApiOperation({ summary: 'Soft delete a practice' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @ForAdmin()
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Soft delete a practice (Admin only)' })
     @ApiResponse({ status: 200, description: 'Practice successfully deleted' })
     @ApiResponse({ status: 404, description: 'Practice not found' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
     async deletePractice(@Param('id') id: string) {
         return this.practiceAggregateService.deletePractice(id);
     }
