@@ -47,6 +47,11 @@ export class OAuthUserInfoDto {
   @IsString()
   @IsOptional()
   refreshToken?: string;
+
+  @ApiProperty({ description: 'User locale' })
+  @IsString()
+  @IsOptional()
+  locale?: string;
 }
 
 export class OAuthLoginResponseDto {

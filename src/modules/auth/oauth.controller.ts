@@ -35,7 +35,7 @@ export class OAuthController {
     const ip = req.ip || req.connection.remoteAddress;
     const result = await this.oauthService.validateOAuthUser(userInfo, userAgent, ip);
     
-    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result);
+    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result, userInfo.locale || 'en');
     res.redirect(redirectUrl);
   }
 
@@ -58,7 +58,7 @@ export class OAuthController {
     const ip = req.ip || req.connection.remoteAddress;
     const result = await this.oauthService.validateOAuthUser(userInfo, userAgent, ip);
     
-    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result);
+    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result, userInfo.locale || 'en');
     res.redirect(redirectUrl);
   }
 
@@ -81,7 +81,7 @@ export class OAuthController {
     const ip = req.ip || req.connection.remoteAddress;
     const result = await this.oauthService.validateOAuthUser(userInfo, userAgent, ip);
     
-    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result);
+    const redirectUrl = await this.oauthService.buildOAuthRedirectUrl(result, userInfo.locale || 'en');
     res.redirect(redirectUrl);
   }
 

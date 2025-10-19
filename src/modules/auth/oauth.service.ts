@@ -145,9 +145,9 @@ export class OAuthService {
     }
   }
 
-  async buildOAuthRedirectUrl(result: OAuthLoginResponseDto): Promise<string> {
+  async buildOAuthRedirectUrl(result: OAuthLoginResponseDto, locale: string = 'en'): Promise<string> {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return `${frontendUrl}/auth/callback?access_token=${result.accessToken}&refresh_token=${result.refreshToken}&is_new_user=${result.isNewUser}`;
+    return `${frontendUrl}/${locale}/auth/callback?access_token=${result.accessToken}&refresh_token=${result.refreshToken}&is_new_user=${result.isNewUser}`;
   }
 
   async unlinkOAuthProviderWithValidation(userId: string, provider: string): Promise<{ message: string }> {

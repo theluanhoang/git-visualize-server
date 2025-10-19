@@ -28,10 +28,12 @@ export class FacebookOAuthStrategy extends PassportStrategy(FacebookPassportStra
       clientSecret: clientSecret,
       callbackURL: callbackURL,
       profileFields: ['id', 'emails', 'name', 'picture'],
+      passReqToCallback: true,
     });
   }
 
   async validate(
+    req: any,
     accessToken: string,
     refreshToken: string,
     profile: OAuthProfile,
@@ -47,6 +49,7 @@ export class FacebookOAuthStrategy extends PassportStrategy(FacebookPassportStra
       provider: OAuthProviderType.FACEBOOK,
       accessToken,
       refreshToken,
+      locale: req.query?.locale || 'en',
     };
 
     done(null, userInfo);

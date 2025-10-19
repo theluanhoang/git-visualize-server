@@ -28,10 +28,12 @@ export class GoogleOAuthStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: clientSecret,
       callbackURL: callbackURL,
       scope: ['email', 'profile'],
+      passReqToCallback: true,
     });
   }
 
   async validate(
+    req: any,
     accessToken: string,
     refreshToken: string,
     profile: OAuthProfile,
@@ -49,6 +51,7 @@ export class GoogleOAuthStrategy extends PassportStrategy(Strategy, 'google') {
       provider: OAuthProviderType.GOOGLE,
       accessToken,
       refreshToken,
+      locale: req.query?.locale || 'en',
     };
 
     done(null, userInfo);

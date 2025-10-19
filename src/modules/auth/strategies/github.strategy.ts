@@ -28,10 +28,12 @@ export class GitHubOAuthStrategy extends PassportStrategy(GitHubPassportStrategy
       clientSecret: clientSecret,
       callbackURL: callbackURL,
       scope: ['user:email'],
+      passReqToCallback: true,
     });
   }
 
   async validate(
+    req: any,
     accessToken: string,
     refreshToken: string,
     profile: OAuthProfile,
@@ -47,6 +49,7 @@ export class GitHubOAuthStrategy extends PassportStrategy(GitHubPassportStrategy
       provider: OAuthProviderType.GITHUB,
       accessToken,
       refreshToken,
+      locale: req.query?.locale || 'en',
     };
 
     done(null, userInfo);
