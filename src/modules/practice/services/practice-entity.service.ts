@@ -33,6 +33,7 @@ export class PracticeEntityService {
             estimatedTime: createPracticeDTO.estimatedTime || 0,
             isActive: createPracticeDTO.isActive !== undefined ? createPracticeDTO.isActive : true,
             order: createPracticeDTO.order || 0,
+            version: createPracticeDTO.version || 1,
             goalRepositoryState: createPracticeDTO.goalRepositoryState
         });
 
@@ -54,6 +55,9 @@ export class PracticeEntityService {
             throw new Error('Practice not found');
         }
 
+        const shouldIncrementVersion = updatePracticeDTO.version === undefined;
+        const newVersion = shouldIncrementVersion ? practice.version + 1 : updatePracticeDTO.version;
+
         Object.assign(practice, {
             title: updatePracticeDTO.title,
             scenario: updatePracticeDTO.scenario,
@@ -61,6 +65,7 @@ export class PracticeEntityService {
             estimatedTime: updatePracticeDTO.estimatedTime,
             isActive: updatePracticeDTO.isActive,
             order: updatePracticeDTO.order,
+            version: newVersion,
             goalRepositoryState: updatePracticeDTO.goalRepositoryState
         });
 

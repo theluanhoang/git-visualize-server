@@ -47,6 +47,13 @@ export class UpdatePracticeDTO extends PartialType(CreatePracticeDTO) {
     order?: number;
 
     @ApiPropertyOptional({
+        description: 'Update practice version',
+        example: 2,
+        minimum: 1
+    })
+    version?: number;
+
+    @ApiPropertyOptional({
         description: 'Update step-by-step instructions',
         type: [CreatePracticeInstructionDTO]
     })

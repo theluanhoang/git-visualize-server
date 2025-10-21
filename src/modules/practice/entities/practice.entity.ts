@@ -35,6 +35,9 @@ export class Practice extends CommonEntity {
     @Column({ default: 0 })
     order: number; // For multiple practices per lesson
 
+    @Column({ default: 1 })
+    version: number;
+
     @Column({ default: 0 })
     views: number;
 

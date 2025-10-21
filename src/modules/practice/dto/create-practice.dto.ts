@@ -184,6 +184,17 @@ export class CreatePracticeDTO {
     order?: number;
 
     @ApiPropertyOptional({
+        description: 'Version of the practice data schema/content',
+        example: 1,
+        minimum: 1,
+        default: 1
+    })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    version?: number;
+
+    @ApiPropertyOptional({
         description: 'Step-by-step instructions',
         type: [CreatePracticeInstructionDTO],
         example: [
