@@ -53,6 +53,9 @@ export default () => ({
     pass: process.env.MAIL_PASS ?? '',
     from: process.env.MAIL_FROM ?? process.env.MAIL_USER ?? '',
   },
+  ai: {
+    geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+  },
 });
 
 
