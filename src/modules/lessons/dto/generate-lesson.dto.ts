@@ -45,7 +45,6 @@ export class GenerateLessonDto {
     example: 'file_123456',
     required: false,
   })
-  @ValidateIf((o) => o.sourceType === SourceType.FILE)
   @IsString()
   @IsOptional()
   fileId?: string;

@@ -1,8 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import * as cheerio from 'cheerio';
-const pdfParse = require('pdf-parse');
-const docx = require('docx');
+import mammoth from 'mammoth';
 import axios from 'axios';
+import { fileTypeFromBuffer } from 'file-type';
+import { extractFileText } from './textract.adapter';
 
 export interface ExtractedContent {
   title: string;
@@ -17,7 +18,9 @@ export interface ExtractedContent {
 
 @Injectable()
 export class ContentExtractionService {
-  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  constructor() {}
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024;
+  private readonly MAX_TEXT_LENGTH = 150_000;
   private readonly ALLOWED_DOMAINS = [
     'git-scm.com',
     'github.com',
@@ -31,7 +34,7 @@ export class ContentExtractionService {
   async extractFromUrl(url: string): Promise<ExtractedContent> {
     try {
       const urlObj = new URL(url);
-      const isAllowedDomain = this.ALLOWED_DOMAINS.some(domain => 
+      const isAllowedDomain = this.ALLOWED_DOMAINS.some(domain =>
         urlObj.hostname === domain || urlObj.hostname.endsWith(`.${domain}`)
       );
 
@@ -48,22 +51,17 @@ export class ContentExtractionService {
       });
 
       const $ = cheerio.load(response.data);
-      
       $('script, style, nav, header, footer, aside, .advertisement, .ads, .sidebar').remove();
-      
-      const title = $('h1').first().text().trim() || 
-                   $('title').text().trim() || 
-                   'Untitled Document';
-
+      const title = $('h1').first().text().trim() ||
+        $('title').text().trim() ||
+        'Untitled Document';
       let content = '';
-      
       const mainContent = $('main, article, .content, .post-content, .entry-content').first();
       if (mainContent.length > 0) {
         content = this.cleanHtml(mainContent.html() || '');
       } else {
         content = this.cleanHtml($('body').html() || '');
       }
-
       return {
         title,
         content,
@@ -87,12 +85,18 @@ export class ContentExtractionService {
       if (buffer.length > this.MAX_FILE_SIZE) {
         throw new BadRequestException('PDF file is too large');
       }
-
-      const data = await pdfParse(buffer);
-      
-      const content = this.cleanText(data.text);
+      const ft = await fileTypeFromBuffer(buffer).catch(() => null);
+      if (!ft || (ft.mime !== 'application/pdf' && ft.ext !== 'pdf')) {
+        throw new BadRequestException('Invalid PDF file type');
+      }
+      let text: string = '';
+      try {
+        text = await extractFileText(buffer, 'pdf');
+      } catch (err) {
+        throw new BadRequestException('Could not extract text from PDF. (Try another file?)');
+      }
+      const content = this.normalizeText(this.cleanText(text)).slice(0, this.MAX_TEXT_LENGTH);
       const title = this.extractTitleFromText(content) || 'PDF Document';
-
       return {
         title,
         content,
@@ -113,14 +117,29 @@ export class ContentExtractionService {
       if (buffer.length > this.MAX_FILE_SIZE) {
         throw new BadRequestException('DOCX file is too large');
       }
-
-      const doc = await docx.Document.load(buffer);
-      const content = this.extractTextFromDocx(doc);
+      const ft = await fileTypeFromBuffer(buffer).catch(() => null);
+      if (!ft || (ft.ext !== 'docx' && ft.mime !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+        throw new BadRequestException('Invalid DOCX file type');
+      }
+      let text: string = '';
+      let mammothOk = false;
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        text = result.value || '';
+        mammothOk = !!text && text.trim().length > 0;
+      } catch {}
+      if (!mammothOk) {
+        try {
+          text = await extractFileText(buffer, 'docx');
+        } catch (err) {
+          throw new BadRequestException('Could not extract text from DOCX. (Try another file?)');
+        }
+      }
+      const content = this.normalizeText(this.cleanText(text)).slice(0, this.MAX_TEXT_LENGTH);
       const title = this.extractTitleFromText(content) || 'DOCX Document';
-
       return {
         title,
-        content: this.cleanText(content),
+        content,
         metadata: {
           source: 'uploaded-docx',
           type: 'docx',
@@ -135,24 +154,19 @@ export class ContentExtractionService {
 
   private cleanHtml(html: string): string {
     const $ = cheerio.load(html);
-    
     $('script, style').remove();
-    
     $('h1, h2, h3, h4, h5, h6').each((_, el) => {
       const $el = $(el);
       const level = parseInt(el.tagName.substring(1));
       $el.attr('data-level', level.toString());
     });
-
     $('pre, code').each((_, el) => {
       const $el = $(el);
       if ($el.is('pre')) {
         $el.find('code').addClass('language-text');
       }
     });
-
     $('p').filter((_, el) => $(el).text().trim() === '').remove();
-
     return $.html();
   }
 
@@ -163,34 +177,24 @@ export class ContentExtractionService {
       .trim();
   }
 
+  private normalizeText(text: string): string {
+    return text
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .normalize('NFC');
+  }
+
   private extractTitleFromText(text: string): string | null {
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     if (lines.length === 0) return null;
-
     for (const line of lines.slice(0, 5)) {
       const trimmed = line.trim();
-      if (trimmed.length > 10 && trimmed.length < 100 && 
-          !trimmed.toLowerCase().includes('table of contents') &&
-          !trimmed.toLowerCase().includes('index')) {
+      if (trimmed.length > 10 && trimmed.length < 100 &&
+        !trimmed.toLowerCase().includes('table of contents') &&
+        !trimmed.toLowerCase().includes('index')) {
         return trimmed;
       }
     }
-
     return lines[0].trim().substring(0, 100);
-  }
-
-  private extractTextFromDocx(doc: any): string {
-    let text = '';
-    
-    if (doc.paragraphs) {
-      for (const paragraph of doc.paragraphs) {
-        if (paragraph.text) {
-          text += paragraph.text + '\n';
-        }
-      }
-    }
-
-    return text;
   }
 
   private countWords(text: string): number {

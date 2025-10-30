@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, ValidationPipe, UsePipes } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LessonService } from './lesson.service';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
@@ -7,7 +7,8 @@ import { ApiBadRequestResponse, ApiCreatedResponse, ApiOkResponse, ApiOperation,
 import { Lesson } from './lesson.entity';
 import { UpdateLessonDTO } from './dto/update-lesson.dto';
 import { GetLessonsResponse, LessonWithPractices } from './types';
-import { GenerateLessonDto, GenerateLessonResponseDto, Language, ModelType, OutlineStyle } from './dto/generate-lesson.dto';
+import { GenerateLessonResponseDto, Language, ModelType, OutlineStyle, SourceType } from './dto/generate-lesson.dto';
+import { GenerateLessonMultipartDto } from './dto/generate-lesson-multipart.dto';
 import { LessonGenerationService } from './services/lesson-generation.service';
 
 @ApiTags('Lessons')
@@ -48,39 +49,45 @@ export class LessonController {
     }
 
     @Post('generate')
+    @UseInterceptors(FileInterceptor('file'))
+    @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
     @ApiOperation({ summary: 'Generate lesson content from URL or file' })
+    @ApiConsumes('multipart/form-data', 'application/json')
     @ApiOkResponse({ description: 'Lesson content generated successfully', type: GenerateLessonResponseDto })
     @ApiBadRequestResponse({ description: 'Invalid input or generation failed' })
-    async generateLesson(@Body() dto: GenerateLessonDto): Promise<GenerateLessonResponseDto> {
-        return this.lessonGenerationService.generateLesson(dto);
-    }
-
-    @Post('generate/upload')
-    @UseInterceptors(FileInterceptor('file'))
-    @ApiOperation({ summary: 'Generate lesson content from uploaded file' })
-    @ApiConsumes('multipart/form-data')
-    @ApiOkResponse({ description: 'Lesson content generated successfully', type: GenerateLessonResponseDto })
-    @ApiBadRequestResponse({ description: 'Invalid file or generation failed' })
-    async generateLessonFromFile(
+    async generateLesson(
         @UploadedFile() file: Express.Multer.File,
-        @Body() body: {
-            language?: Language;
-            model?: ModelType;
-            outlineStyle?: OutlineStyle;
-            additionalInstructions?: string;
-        },
-    ): Promise<GenerateLessonResponseDto> {
-        if (!file) {
-            throw new BadRequestException('File is required');
-        }
+        @Body() body: GenerateLessonMultipartDto,
+    ): Promise<GenerateLessonResponseDto> {     
+        const { sourceType, url, language, model, outlineStyle, additionalInstructions } = body;
 
-        return this.lessonGenerationService.generateLessonFromFile(
-            file.buffer,
-            file.originalname,
-            body.language || Language.VI,
-            body.model || ModelType.GEMINI_FLASH,
-            body.outlineStyle || OutlineStyle.DETAILED,
-            body.additionalInstructions,
-        );
+        if (sourceType === SourceType.FILE) {
+            if (!file) {
+                throw new BadRequestException('File is required when sourceType is file');
+            }
+            return this.lessonGenerationService.generateLesson({
+                sourceType,
+                fileBuffer: file.buffer,
+                fileName: file.originalname,
+                language: language || Language.VI,
+                model: model || ModelType.GEMINI_FLASH,
+                outlineStyle: outlineStyle || OutlineStyle.DETAILED,
+                additionalInstructions,
+            });
+        } else if (sourceType === SourceType.URL) {
+            if (!url) {
+                throw new BadRequestException('URL is required when sourceType is url');
+            }
+            return this.lessonGenerationService.generateLesson({
+                sourceType,
+                url,
+                language: language || Language.VI,
+                model: model || ModelType.GEMINI_FLASH,
+                outlineStyle: outlineStyle || OutlineStyle.DETAILED,
+                additionalInstructions,
+            });
+        } else {
+            throw new BadRequestException('Invalid source type');
+        }
     }
 }
