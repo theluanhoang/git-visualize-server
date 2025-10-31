@@ -199,6 +199,15 @@ STEP 1: Start your response with a JSON comment containing the practice data. Us
 
 <!--JSON {"practices":[{"title":"Practice Title","scenario":"Practice scenario","difficulty":2,"estimatedTime":15,"instructions":[{"content":"Step 1 instruction","order":1}],"hints":[{"content":"Helpful hint"}],"expectedCommands":[{"command":"git init","order":1,"isRequired":true,"expectedOutput":"Initialized empty Git repository"},{"command":"git commit -m \"Initial commit\"","order":2,"isRequired":true,"expectedOutput":"Commit created successfully"}],"validationRules":[{"type":"min_commands","value":"2"}],"tags":[{"name":"git-basics"}],"goalRepositoryState":{"commits":[{"id":"a1b2c3d4e5f6","type":"COMMIT","parents":[],"author":{"name":"Student","email":"student@example.com","date":"2024-01-01T10:00:00Z"},"committer":{"name":"Student","email":"student@example.com","date":"2024-01-01T10:00:00Z"},"message":"Initial commit","branch":"main"}],"branches":[{"name":"main","commitId":"a1b2c3d4e5f6"}],"tags":[],"head":{"type":"branch","ref":"main","commitId":"a1b2c3d4e5f6"}}]} -->
 
+STRICT JSON RULES (MANDATORY):
+- Output MUST be valid JSON according to RFC 8259.
+- Use ONLY double quotes for all keys and string values.
+- NO trailing commas.
+- Escape all embedded quotes and special characters inside strings (e.g., newlines as \n, quotes as \").
+- Do NOT include comments inside the JSON.
+- Do NOT include undefined, NaN, or Infinity values.
+- Ensure the JSON parses with JSON.parse in JavaScript without errors.
+
 STEP 2: After the JSON comment, output the lesson HTML content.
 
 MANDATORY: You MUST ALWAYS include the JSON comment with practice data. This is NOT optional.
@@ -207,6 +216,7 @@ MANDATORY: You MUST ALWAYS include the JSON comment with practice data. This is 
 - At least 1 practice is MANDATORY for every lesson
 
 IMPORTANT: The JSON comment MUST be at the very beginning of your response, before any HTML content.
+Before returning, SELF-CHECK the JSON against the STRICT JSON RULES and fix any violations.
 
 Each practice should include:
 - Realistic scenario based on the lesson content
@@ -258,6 +268,7 @@ VALIDATION CHECKLIST BEFORE YOU RESPOND (STRICT - ALL ITEMS MUST PASS):
 - [ ] All command examples only use the SUPPORTED GIT COMMANDS list
 - [ ] Commit messages are quoted (git commit -m "message")
 - [ ] ALL practices have complete goalRepositoryState (commits, branches, tags, head)
+- [ ] JSON is syntactically valid (double quotes only, no trailing commas, strings escaped, parses via JSON.parse)
 - If ANY expectedCommands entry is missing expectedOutput, REGENERATE that practice internally and only return the corrected version.
 - If practices array is empty or missing, REGENERATE the entire response with at least 1 practice.
 

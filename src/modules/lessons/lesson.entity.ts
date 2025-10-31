@@ -22,6 +22,6 @@ export class Lesson extends CommonEntity {
     @Column({ nullable: true })
     practice?: string;
 
-    @Column({ type: 'enum', enum: ELessonStatus, default: ELessonStatus.DRAFT })
+    @Column({ type: 'enum', enum: ELessonStatus, default: ELessonStatus.PUBLISHED })
     status: ELessonStatus;
 }
