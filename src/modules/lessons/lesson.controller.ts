@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, ValidationPipe, UsePipes, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, ValidationPipe, UsePipes, UseGuards, ConflictException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LessonService } from './lesson.service';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
@@ -14,14 +14,38 @@ import { LessonViewService } from './lesson-view.service';
 import { TrackLessonViewDto } from './dto/track-lesson-view.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserId } from '../auth/decorators/current-user.decorator';
+import { RatingService } from './rating.service';
+import { CreateRatingDto, UpdateRatingDto } from './dto/create-rating.dto';
+import { RatingResponseDto, LessonRatingStatsDto, UserInfoDto } from './dto/rating-response.dto';
+import { RatingGateway } from './rating.gateway';
 
 @ApiTags('Lessons')
 @Controller('lesson')
 export class LessonController {
+    private mapRatingToResponse(rating: any): RatingResponseDto {
+        return {
+            id: rating.id,
+            userId: rating.userId,
+            lessonId: rating.lessonId,
+            rating: rating.rating,
+            comment: rating.comment,
+            createdAt: rating.createdAt,
+            updatedAt: rating.updatedAt,
+            user: rating.user ? {
+                id: rating.user.id,
+                email: rating.user.email,
+                firstName: rating.user.firstName,
+                lastName: rating.user.lastName,
+                avatar: rating.user.avatar,
+            } : undefined,
+        };
+    }
     constructor(
         private readonly lessonService: LessonService,
         private readonly lessonGenerationService: LessonGenerationService,
         private readonly lessonViewService: LessonViewService,
+        private readonly ratingService: RatingService,
+        private readonly ratingGateway: RatingGateway,
     ) {}
 
     @Get()
@@ -142,5 +166,104 @@ export class LessonController {
             hasViewed,
             viewCount,
         };
+    }
+
+    @Post(':id/rating')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Create or update rating for a lesson' })
+    @ApiCreatedResponse({ description: 'Rating created successfully', type: RatingResponseDto })
+    @ApiBadRequestResponse({ description: 'Invalid rating value or lesson not found' })
+    async createRating(
+        @UserId() userId: string,
+        @Param('id') lessonId: string,
+        @Body() dto: CreateRatingDto,
+    ): Promise<RatingResponseDto> {
+        try {
+            await this.ratingService.createRating(userId, lessonId, dto);
+            const ratingWithUser = await this.ratingService.getUserRating(userId, lessonId);
+            const response = this.mapRatingToResponse(ratingWithUser!);
+            
+            this.ratingGateway.emitRatingCreated(lessonId, response);
+            const stats = await this.ratingService.getLessonRatingStats(lessonId);
+            this.ratingGateway.emitStatsUpdated(lessonId, stats);
+            
+            return response;
+        } catch (error) {
+            if (error instanceof ConflictException) {
+                const rating = await this.ratingService.updateRating(userId, lessonId, dto);
+                const ratingWithUser = await this.ratingService.getUserRating(userId, lessonId);
+                const response = this.mapRatingToResponse(ratingWithUser!);
+                
+                this.ratingGateway.emitRatingUpdated(lessonId, response);
+                const stats = await this.ratingService.getLessonRatingStats(lessonId);
+                this.ratingGateway.emitStatsUpdated(lessonId, stats);
+                
+                return response;
+            }
+            throw error;
+        }
+    }
+
+    @Patch(':id/rating')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Update rating for a lesson' })
+    @ApiOkResponse({ description: 'Rating updated successfully', type: RatingResponseDto })
+    @ApiBadRequestResponse({ description: 'Invalid rating value or rating not found' })
+    async updateRating(
+        @UserId() userId: string,
+        @Param('id') lessonId: string,
+        @Body() dto: UpdateRatingDto,
+    ): Promise<RatingResponseDto> {
+        await this.ratingService.updateRating(userId, lessonId, dto);
+        const rating = await this.ratingService.getUserRating(userId, lessonId);
+        const response = this.mapRatingToResponse(rating!);
+        
+        this.ratingGateway.emitRatingUpdated(lessonId, response);
+        const stats = await this.ratingService.getLessonRatingStats(lessonId);
+        this.ratingGateway.emitStatsUpdated(lessonId, stats);
+        
+        return response;
+    }
+
+    @Delete(':id/rating')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Delete rating for a lesson' })
+    @ApiOkResponse({ description: 'Rating deleted successfully' })
+    @ApiBadRequestResponse({ description: 'Rating not found' })
+    async deleteRating(@UserId() userId: string, @Param('id') lessonId: string) {
+        await this.ratingService.deleteRating(userId, lessonId);
+        
+        this.ratingGateway.emitRatingDeleted(lessonId, userId);
+        const stats = await this.ratingService.getLessonRatingStats(lessonId);
+        this.ratingGateway.emitStatsUpdated(lessonId, stats);
+        
+        return { message: 'Rating deleted successfully' };
+    }
+
+    @Get(':id/rating')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Get user rating for a lesson' })
+    @ApiOkResponse({ description: 'User rating retrieved successfully', type: RatingResponseDto })
+    async getUserRating(@UserId() userId: string, @Param('id') lessonId: string) {
+        const rating = await this.ratingService.getUserRating(userId, lessonId);
+        if (!rating) {
+            return null;
+        }
+        return this.mapRatingToResponse(rating);
+    }
+
+    @Get(':id/rating/stats')
+    @ApiOperation({ summary: 'Get rating statistics for a lesson' })
+    @ApiOkResponse({ description: 'Rating statistics retrieved successfully', type: LessonRatingStatsDto })
+    async getLessonRatingStats(@Param('id') lessonId: string): Promise<LessonRatingStatsDto> {
+        return this.ratingService.getLessonRatingStats(lessonId);
+    }
+
+    @Get(':id/ratings')
+    @ApiOperation({ summary: 'Get all ratings for a lesson' })
+    @ApiOkResponse({ description: 'Ratings retrieved successfully', type: [RatingResponseDto] })
+    async getLessonRatings(@Param('id') lessonId: string): Promise<RatingResponseDto[]> {
+        const ratings = await this.ratingService.getLessonRatings(lessonId);
+        return ratings.map((rating) => this.mapRatingToResponse(rating));
     }
 }

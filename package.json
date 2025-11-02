@@ -42,8 +42,10 @@
     "@nestjs/jwt": "^11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.8",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "^11.1.8",
     "@types/dompurify": "^3.0.5",
     "@types/multer": "^2.0.0",
     "@types/passport-facebook": "^3.0.3",
@@ -72,6 +74,7 @@
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1",
     "textract": "^2.5.0",
     "typeorm": "^0.3.27"
   },
