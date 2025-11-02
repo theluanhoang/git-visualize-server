@@ -41,7 +41,8 @@ import { PracticeTagService } from './services/practice-tag.service';
     PracticeRepositoryStateService,
   ],
   exports: [
-    PracticeAggregateService, 
+    PracticeAggregateService,
+    PracticeEntityService,
   ],
 })
 export class PracticeModule {}

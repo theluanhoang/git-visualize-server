@@ -77,6 +77,14 @@ export class AdminController {
   async getDashboardStats() {
     return this.adminService.getDashboardStats();
   }
+
+  @Get('analytics/metrics')
+  @ApiOperation({ summary: 'Get analytics metrics (total time spent, completion rate, average session time, engagement rate)' })
+  @ApiResponse({ status: 200, description: 'Analytics metrics retrieved' })
+  @ForAdmin()
+  async getAnalyticsMetrics() {
+    return this.adminService.getAnalyticsMetrics();
+  }
 }
 
 

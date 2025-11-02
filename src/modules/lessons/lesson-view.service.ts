@@ -114,5 +114,14 @@ export class LessonViewService {
         const stats = await this.getLessonViewStats(lessonId);
         await this.lessonService.updateLessonViews(lessonId, stats.totalViews);
     }
+
+    async getUniqueViewersCount(): Promise<number> {
+        const result = await this.lessonViewRepository
+            .createQueryBuilder('view')
+            .select('COUNT(DISTINCT view.userId)', 'count')
+            .getRawOne<{ count: string }>();
+
+        return result?.count ? parseInt(result.count) : 0;
+    }
 }
 

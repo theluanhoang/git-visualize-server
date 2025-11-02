@@ -104,4 +104,33 @@ export class PracticeEntityService {
     async incrementCompletions(id: string): Promise<void> {
         await this.practiceRepository.increment({ id }, 'completions', 1);
     }
+    
+    async getAggregateStats(): Promise<{
+        totalTimeSpent: { totalMinutes: number };
+        completionStats: { totalCompletions: number; totalViews: number };
+    }> {
+        const [totalTimeSpent, completionStats] = await Promise.all([
+            this.practiceRepository
+                .createQueryBuilder('practice')
+                .select('SUM(practice.estimatedTime * practice.completions)', 'totalMinutes')
+                .where('practice.completions > 0')
+                .getRawOne<{ totalMinutes: string | null }>(),
+            this.practiceRepository
+                .createQueryBuilder('practice')
+                .select('SUM(practice.completions)', 'totalCompletions')
+                .addSelect('SUM(practice.views)', 'totalViews')
+                .where('practice.views > 0')
+                .getRawOne<{ totalCompletions: string | null; totalViews: string | null }>(),
+        ]);
+
+        return {
+            totalTimeSpent: {
+                totalMinutes: totalTimeSpent?.totalMinutes ? parseFloat(totalTimeSpent.totalMinutes) : 0,
+            },
+            completionStats: {
+                totalCompletions: completionStats?.totalCompletions ? parseFloat(completionStats.totalCompletions) : 0,
+                totalViews: completionStats?.totalViews ? parseFloat(completionStats.totalViews) : 0,
+            },
+        };
+    }
 }

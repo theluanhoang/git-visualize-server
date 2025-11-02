@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { MailService, MailAttachment } from '../mail/mail.service';
 import { UserService } from '../users/user.service';
 import { LessonService } from '../lessons/lesson.service';
+import { SessionService } from '../sessions/session.service';
+import { PracticeEntityService } from '../practice/services/practice-entity.service';
+import { LessonViewService } from '../lessons/lesson-view.service';
 
 @Injectable()
 export class AdminService {
@@ -9,6 +12,9 @@ export class AdminService {
     private readonly mailService: MailService,
     private readonly userService: UserService,
     private readonly lessonService: LessonService,
+    private readonly sessionService: SessionService,
+    private readonly practiceEntityService: PracticeEntityService,
+    private readonly lessonViewService: LessonViewService,
   ) {}
 
   async sendEmailToUser(
@@ -46,6 +52,114 @@ export class AdminService {
       totalViews,
       recentActivity,
     };
+  }
+
+  async getAnalyticsMetrics() {
+    const totalTimeSpent = await this.calculateTotalTimeSpent();
+    
+    const completionRate = await this.calculateCompletionRate();
+    
+    const averageSessionTime = await this.calculateAverageSessionTime();
+    
+    const engagementRate = await this.calculateEngagementRate();
+
+    return {
+      totalTimeSpent,
+      completionRate,
+      averageSessionTime,
+      engagementRate,
+    };
+  }
+
+  private async calculateTotalTimeSpent(): Promise<{ hours: number; minutes: number }> {
+    try {
+      const stats = await this.practiceEntityService.getAggregateStats();
+      const totalMinutes = stats.totalTimeSpent.totalMinutes;
+      const totalHours = Math.floor(totalMinutes / 60);
+      const remainingMinutes = Math.floor(totalMinutes % 60);
+
+      return {
+        hours: totalHours,
+        minutes: remainingMinutes,
+      };
+    } catch (error) {
+      console.error('Error calculating total time spent:', error);
+      return { hours: 0, minutes: 0 };
+    }
+  }
+
+  private async calculateCompletionRate(): Promise<number> {
+    try {
+      const stats = await this.practiceEntityService.getAggregateStats();
+      const { totalCompletions, totalViews } = stats.completionStats;
+
+      if (totalViews === 0) return 0;
+
+      const rate = (totalCompletions / totalViews) * 100;
+      return Math.round(rate * 10) / 10;
+    } catch (error) {
+      console.error('Error calculating completion rate:', error);
+      return 0;
+    }
+  }
+
+  private async calculateAverageSessionTime(): Promise<{ hours: number; minutes: number }> {
+    try {
+      const now = new Date();
+      const sessions = await this.sessionService.getAllSessionsForAnalytics();
+
+      if (sessions.length === 0) return { hours: 0, minutes: 0 };
+
+      let totalMinutes = 0;
+      let validSessions = 0;
+
+      sessions.forEach(session => {
+        const startTime = session.createdAt;
+        let endTime: Date;
+        
+        if (session.revokedAt) {
+          endTime = session.revokedAt;
+        } else if (session.expiresAt && session.expiresAt > now) {
+          endTime = session.expiresAt;
+        } else if (session.expiresAt && session.expiresAt <= now) {
+          endTime = session.expiresAt;
+        } else {
+          endTime = now;
+        }
+
+        const duration = Math.max(0, (endTime.getTime() - startTime.getTime()) / (1000 * 60)); 
+        totalMinutes += duration;
+        validSessions++;
+      });
+
+      if (validSessions === 0) return { hours: 0, minutes: 0 };
+
+      const avgMinutes = totalMinutes / validSessions;
+      const hours = Math.floor(avgMinutes / 60);
+      const minutes = Math.round(avgMinutes % 60);
+
+      return { hours, minutes };
+    } catch (error) {
+      console.error('Error calculating average session time:', error);
+      return { hours: 0, minutes: 0 };
+    }
+  }
+
+  private async calculateEngagementRate(): Promise<number> {
+    try {
+      const totalUsers = await this.userService.getUserAggregateStats();
+      const userCount = totalUsers.totalUsers;
+
+      if (userCount === 0) return 0;
+
+      const engagedUsers = await this.lessonViewService.getUniqueViewersCount();
+
+      const engagementRate = (engagedUsers / userCount) * 100;
+      return Math.round(engagementRate * 10) / 10;
+    } catch (error) {
+      console.error('Error calculating engagement rate:', error);
+      return 0;
+    }
   }
 }
 

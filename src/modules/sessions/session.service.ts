@@ -261,4 +261,10 @@ export class SessionService {
       .getRawOne<{ createdAt?: Date }>();
     return row?.createdAt ?? null;
   }
+
+  async getAllSessionsForAnalytics(): Promise<Array<{ createdAt: Date; expiresAt: Date; revokedAt: Date | null }>> {
+    return this.sessionRepository.find({
+      select: ['createdAt', 'expiresAt', 'revokedAt'],
+    });
+  }
 }
