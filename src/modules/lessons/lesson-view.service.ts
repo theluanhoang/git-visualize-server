@@ -123,5 +123,27 @@ export class LessonViewService {
 
         return result?.count ? parseInt(result.count) : 0;
     }
+
+    async getUniqueViewers(): Promise<string[]> {
+        const result = await this.lessonViewRepository
+            .createQueryBuilder('view')
+            .select('DISTINCT view.userId', 'userId')
+            .getRawMany<{ userId: string }>();
+
+        return result.map(r => r.userId);
+    }
+
+    async getUniqueEngagedUsersCount(): Promise<number> {
+        const result = await this.lessonViewRepository.manager.query(`
+            SELECT COUNT(DISTINCT user_id) as count
+            FROM (
+                SELECT DISTINCT user_id FROM lesson_view
+                UNION
+                SELECT DISTINCT user_id FROM rating
+            ) AS engaged_users
+        `);
+
+        return result?.[0]?.count ? parseInt(result[0].count, 10) : 0;
+    }
 }
 

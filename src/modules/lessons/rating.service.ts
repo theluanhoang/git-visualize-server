@@ -117,5 +117,64 @@ export class RatingService {
     const stats = await this.getLessonRatingStats(lessonId);
     return stats.averageRating;
   }
+
+  async getUniqueRatersCount(): Promise<number> {
+    const result = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('COUNT(DISTINCT rating.userId)', 'count')
+      .getRawOne<{ count: string }>();
+
+    return result?.count ? parseInt(result.count) : 0;
+  }
+
+  async getUniqueRaters(): Promise<string[]> {
+    const result = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('DISTINCT rating.userId', 'userId')
+      .getRawMany<{ userId: string }>();
+
+    return result.map(r => r.userId);
+  }
+
+  async getPositiveRatersCount(): Promise<number> {
+    const result = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('COUNT(DISTINCT rating.userId)', 'count')
+      .where('rating.rating >= :minRating', { minRating: 4 })
+      .getRawOne<{ count: string }>();
+
+    return result?.count ? parseInt(result.count) : 0;
+  }
+
+  async getPositiveRaters(): Promise<string[]> {
+    const result = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('DISTINCT rating.userId', 'userId')
+      .where('rating.rating >= :minRating', { minRating: 4 })
+      .getRawMany<{ userId: string }>();
+
+    return result.map(r => r.userId);
+  }
+
+  async getRatingsForLessons(lessonIds: string[]): Promise<Record<string, number>> {
+    if (lessonIds.length === 0) {
+      return {};
+    }
+
+    const results = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('rating.lessonId', 'lessonId')
+      .addSelect('AVG(rating.rating)', 'averageRating')
+      .where('rating.lessonId IN (:...lessonIds)', { lessonIds })
+      .groupBy('rating.lessonId')
+      .getRawMany<{ lessonId: string; averageRating: string }>();
+
+    const ratingsMap: Record<string, number> = {};
+    results.forEach((result) => {
+      ratingsMap[result.lessonId] = parseFloat(result.averageRating) || 0;
+    });
+
+    return ratingsMap;
+  }
 }
 

@@ -40,48 +40,53 @@ export class LessonService {
     async getLessons(query: GetLessonsQueryDto): Promise<GetLessonsResponse<Lesson | LessonWithPractices>>{
         const { limit = 20, offset = 0, id, slug, status, q, includePractices = false } = query;
         
-        let lessons: Lesson[];
-        let total: number;
+        const baseQb = this.lessonRepository.createQueryBuilder('lesson');
         
+        if (id) baseQb.andWhere('lesson.id = :id', { id });
+        if (slug) baseQb.andWhere('lesson.slug = :slug', { slug });
+        if (status) baseQb.andWhere('lesson.status = :status', { status });
         if (q) {
-            const qb = this.lessonRepository.createQueryBuilder('lesson');
-            if (id) qb.andWhere('lesson.id = :id', { id });
-            if (slug) qb.andWhere('lesson.slug = :slug', { slug });
-            if (status) qb.andWhere('lesson.status = :status', { status });
-            qb.andWhere('(lesson.title ILIKE :q OR lesson.description ILIKE :q)', { q: `%${q}%` });
-            qb.skip(offset).take(limit).orderBy('lesson.createdAt', 'DESC');
-            [lessons, total] = await qb.getManyAndCount();
-        } else {
-            const where: Record<string, any> = {};
-            if (id) where.id = id;
-            if (slug) where.slug = slug;
-            if (status) where.status = status;
-            
-            [lessons, total] = await this.lessonRepository.findAndCount({
-                where,
-                skip: offset,
-                take: limit,
-                order: { createdAt: 'DESC' },
-            });
+            baseQb.andWhere('(lesson.title ILIKE :q OR lesson.description ILIKE :q)', { q: `%${q}%` });
         }
+
+        const countQb = baseQb.clone().select('COUNT(DISTINCT lesson.id)', 'count');
+        const totalResult = await countQb.getRawOne<{ count: string }>();
+        const total = parseInt(totalResult?.count || '0', 10);
+
+        const dataQb = baseQb
+            .clone()
+            .addSelect('COALESCE(AVG(rating.rating), 0)', 'averageRating')
+            .leftJoin('rating', 'rating', 'rating.lesson_id = lesson.id')
+            .groupBy('lesson.id')
+            .skip(offset)
+            .take(limit)
+            .orderBy('lesson.createdAt', 'DESC');
+
+        const { entities, raw } = await dataQb.getRawAndEntities();
+
+        const lessonsWithRatings = entities.map((lesson, index) => {
+            (lesson as any).averageRating = parseFloat(raw[index].averageRating) || 0;
+            return lesson;
+        }) as (Lesson & { averageRating: number })[];
 
         if (includePractices) {
-            const data = await this.fetchPracticesForLessons(lessons);
-            return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices>;
+            const data = await this.fetchPracticesForLessons(lessonsWithRatings);
+            return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices & { averageRating?: number }>;
         }
 
-        return { data: lessons, total, limit, offset } as GetLessonsResponse<Lesson>;
+        return { data: lessonsWithRatings, total, limit, offset } as GetLessonsResponse<Lesson & { averageRating: number }>;
     }
 
 
-    private async fetchPracticesForLessons(lessons: Lesson[]): Promise<LessonWithPractices[]> {
+    private async fetchPracticesForLessons(lessons: (Lesson & { averageRating?: number })[]): Promise<(LessonWithPractices & { averageRating?: number })[]> {
         return Promise.all(
             lessons.map(async (lesson) => {
                 const practices = await this.practiceAggregateService.getPracticesByLessonSlug(lesson.slug);
                 return {
                     ...lesson,
-                    practices: practices
-                } as LessonWithPractices;
+                    practices: practices,
+                    averageRating: lesson.averageRating
+                } as LessonWithPractices & { averageRating?: number };
             })
         );
     }

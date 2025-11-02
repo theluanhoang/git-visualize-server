@@ -152,9 +152,9 @@ export class AdminService {
 
       if (userCount === 0) return 0;
 
-      const engagedUsers = await this.lessonViewService.getUniqueViewersCount();
+      const totalEngagedUsers = await this.lessonViewService.getUniqueEngagedUsersCount();
 
-      const engagementRate = (engagedUsers / userCount) * 100;
+      const engagementRate = (totalEngagedUsers / userCount) * 100;
       return Math.round(engagementRate * 10) / 10;
     } catch (error) {
       console.error('Error calculating engagement rate:', error);
