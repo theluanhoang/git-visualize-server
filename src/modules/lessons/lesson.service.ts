@@ -6,6 +6,7 @@ import { CreateLessonDTO } from './dto/create-lesson.dto';
 import { GetLessonsQueryDto } from './dto/get-lessons.query.dto';
 import { UpdateLessonDTO } from './dto/update-lesson.dto';
 import { PracticeAggregateService } from '../practice/services/practice-aggregate.service';
+import { PracticeRepositoryStateService } from '../practice/services/practice-repository-state.service';
 import { 
   LessonWithPractices, 
   GetLessonsResponse,
@@ -18,6 +19,7 @@ export class LessonService {
         private readonly lessonRepository: Repository<Lesson>,
         @Inject(forwardRef(() => PracticeAggregateService))
         private readonly practiceAggregateService: PracticeAggregateService,
+        private readonly practiceRepoStateService: PracticeRepositoryStateService,
     ) {}
 
 
@@ -50,9 +52,6 @@ export class LessonService {
         }
 
         const countQb = baseQb.clone().select('COUNT(DISTINCT lesson.id)', 'count');
-        const totalResult = await countQb.getRawOne<{ count: string }>();
-        const total = parseInt(totalResult?.count || '0', 10);
-
         const dataQb = baseQb
             .clone()
             .addSelect('COALESCE(AVG(rating.rating), 0)', 'averageRating')
@@ -62,19 +61,34 @@ export class LessonService {
             .take(limit)
             .orderBy('lesson.createdAt', 'DESC');
 
-        const { entities, raw } = await dataQb.getRawAndEntities();
+        const [totalResult, { entities, raw }] = await Promise.all([
+            countQb.getRawOne<{ count: string }>(),
+            dataQb.getRawAndEntities()
+        ]);
+
+        const total = parseInt(totalResult?.count || '0', 10);
 
         const lessonsWithRatings = entities.map((lesson, index) => {
             (lesson as any).averageRating = parseFloat(raw[index].averageRating) || 0;
             return lesson;
         }) as (Lesson & { averageRating: number })[];
 
+        const lessonIds = lessonsWithRatings.map(l => l.id);
+        const [completionCounts] = await Promise.all([
+            lessonIds.length > 0 ? this.getPracticeCompletionCountsForLessons(lessonIds) : Promise.resolve({}),
+        ]);
+        
+        const lessonsWithData = lessonsWithRatings.map((lesson) => {
+            (lesson as any).completedUsersCount = completionCounts[lesson.id] || 0;
+            return lesson;
+        }) as (Lesson & { averageRating: number; completedUsersCount: number })[];
+
         if (includePractices) {
-            const data = await this.fetchPracticesForLessons(lessonsWithRatings);
-            return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices & { averageRating?: number }>;
+            const data = await this.fetchPracticesForLessons(lessonsWithData);
+            return { data, total, limit, offset } as GetLessonsResponse<LessonWithPractices & { averageRating?: number; completedUsersCount?: number }>;
         }
 
-        return { data: lessonsWithRatings, total, limit, offset } as GetLessonsResponse<Lesson & { averageRating: number }>;
+        return { data: lessonsWithData, total, limit, offset } as GetLessonsResponse<Lesson & { averageRating: number; completedUsersCount: number }>;
     }
 
 
@@ -117,5 +131,27 @@ export class LessonService {
       { id: lessonId },
       { views },
     );
+  }
+
+  async getPracticeCompletionCount(lessonId: string): Promise<number> {
+    const practices = await this.practiceAggregateService.getPractices({ 
+      lessonId,
+      isActive: true 
+    });
+    
+    if (!('data' in practices) || practices.data.length === 0) {
+      return 0;
+    }
+
+    const practiceIds = practices.data.map(p => p.id);
+    
+    const mappings = await this.practiceRepoStateService.getPracticeUserMappings(practiceIds);
+    const uniqueUsers = new Set(mappings.map(m => m.userId));
+
+    return uniqueUsers.size;
+  }
+
+  async getPracticeCompletionCountsForLessons(lessonIds: string[]): Promise<Record<string, number>> {
+    return this.practiceRepoStateService.getCompletionCountsByLessons(lessonIds);
   }
 }

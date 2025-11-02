@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PracticeRepositoryState } from '../entities/practice-repository-state.entity';
+import { Practice } from '../entities/practice.entity';
 import type { IRepositoryState } from '../../git-engine/git-engine.interface';
 
 @Injectable()
@@ -57,6 +58,54 @@ export class PracticeRepositoryStateService {
       throw new NotFoundException('Repository state not found');
     }
     await this.repo.delete(existing.id);
+  }
+
+  async getPracticeUserMappings(practiceIds: string[]): Promise<Array<{ practiceId: string; userId: string }>> {
+    if (practiceIds.length === 0) {
+      return [];
+    }
+
+    const result = await this.repo
+      .createQueryBuilder('prs')
+      .select('prs.practiceId', 'practiceId')
+      .addSelect('prs.userId', 'userId')
+      .where('prs.practiceId IN (:...practiceIds)', { practiceIds })
+      .getRawMany<{ practiceId: string; userId: string }>();
+
+    return result;
+  }
+
+  async getCompletionCountsByLessons(lessonIds: string[]): Promise<Record<string, number>> {
+    if (lessonIds.length === 0) {
+      return {};
+    }
+
+    const result = await this.repo.manager
+      .createQueryBuilder(Practice, 'practice')
+      .select('practice.lessonId', 'lessonId')
+      .addSelect('COUNT(DISTINCT prs.userId)', 'count')
+      .leftJoin(
+        PracticeRepositoryState,
+        'prs',
+        'prs.practiceId = CAST(practice.id AS varchar) AND prs.practiceId ~ \'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\''
+      )
+      .where('practice.lessonId IN (:...lessonIds)', { lessonIds })
+      .andWhere('practice.isActive = :isActive', { isActive: true })
+      .groupBy('practice.lessonId')
+      .getRawMany<{ lessonId: string; count: string }>();
+
+    const completionCounts: Record<string, number> = {};
+    result.forEach((row) => {
+      completionCounts[row.lessonId] = parseInt(row.count, 10) || 0;
+    });
+
+    lessonIds.forEach(lessonId => {
+      if (!(lessonId in completionCounts)) {
+        completionCounts[lessonId] = 0;
+      }
+    });
+
+    return completionCounts;
   }
 }
 

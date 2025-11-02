@@ -43,6 +43,7 @@ import { PracticeTagService } from './services/practice-tag.service';
   exports: [
     PracticeAggregateService,
     PracticeEntityService,
+    PracticeRepositoryStateService,
   ],
 })
 export class PracticeModule {}
