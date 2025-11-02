@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, ValidationPipe, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, ValidationPipe, UsePipes, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LessonService } from './lesson.service';
 import { CreateLessonDTO } from './dto/create-lesson.dto';
@@ -10,6 +10,10 @@ import { GetLessonsResponse, LessonWithPractices } from './types';
 import { GenerateLessonResponseDto, Language, ModelType, OutlineStyle, SourceType } from './dto/generate-lesson.dto';
 import { GenerateLessonMultipartDto } from './dto/generate-lesson-multipart.dto';
 import { LessonGenerationService } from './services/lesson-generation.service';
+import { LessonViewService } from './lesson-view.service';
+import { TrackLessonViewDto } from './dto/track-lesson-view.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UserId } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Lessons')
 @Controller('lesson')
@@ -17,6 +21,7 @@ export class LessonController {
     constructor(
         private readonly lessonService: LessonService,
         private readonly lessonGenerationService: LessonGenerationService,
+        private readonly lessonViewService: LessonViewService,
     ) {}
 
     @Get()
@@ -89,5 +94,53 @@ export class LessonController {
         } else {
             throw new BadRequestException('Invalid source type');
         }
+    }
+
+    @Post('track-view')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Track a lesson view for authenticated user' })
+    @ApiOkResponse({ description: 'Lesson view tracked successfully' })
+    @ApiBadRequestResponse({ description: 'Invalid lesson ID' })
+    async trackLessonView(@UserId() userId: string, @Body() dto: TrackLessonViewDto) {
+        return this.lessonViewService.trackLessonView(userId, dto.lessonId);
+    }
+
+    @Get('my-views')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Get lesson views for authenticated user' })
+    @ApiOkResponse({ description: 'User lesson views retrieved successfully' })
+    async getMyLessonViews(
+        @UserId() userId: string,
+        @Query('limit') limit?: number,
+        @Query('offset') offset?: number,
+        @Query('orderBy') orderBy?: 'viewedAt' | 'lastViewedAt' | 'viewCount',
+        @Query('order') order?: 'ASC' | 'DESC',
+    ) {
+        return this.lessonViewService.getUserLessonViews(userId, {
+            limit: limit ? Number(limit) : undefined,
+            offset: offset ? Number(offset) : undefined,
+            orderBy,
+            order,
+        });
+    }
+
+    @Get(':id/view-stats')
+    @ApiOperation({ summary: 'Get view statistics for a specific lesson' })
+    @ApiOkResponse({ description: 'Lesson view statistics retrieved successfully' })
+    async getLessonViewStats(@Param('id') id: string) {
+        return this.lessonViewService.getLessonViewStats(id);
+    }
+
+    @Get(':id/has-viewed')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Check if authenticated user has viewed a specific lesson' })
+    @ApiOkResponse({ description: 'Check result retrieved successfully' })
+    async hasUserViewedLesson(@UserId() userId: string, @Param('id') id: string) {
+        const hasViewed = await this.lessonViewService.hasUserViewedLesson(userId, id);
+        const viewCount = await this.lessonViewService.getUserLessonViewCount(userId, id);
+        return {
+            hasViewed,
+            viewCount,
+        };
     }
 }

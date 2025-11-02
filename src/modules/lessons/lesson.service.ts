@@ -106,4 +106,11 @@ export class LessonService {
     }
     return { success: true };
   }
+
+  async updateLessonViews(lessonId: string, views: number): Promise<void> {
+    await this.lessonRepository.update(
+      { id: lessonId },
+      { views },
+    );
+  }
 }
