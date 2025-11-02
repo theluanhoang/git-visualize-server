@@ -231,6 +231,7 @@ export class UserService {
           activeSessions: active,
           oauthSessions: oauth,
           lastLoginAt,
+          lastActive: lastLoginAt ? (typeof lastLoginAt === 'string' ? lastLoginAt : lastLoginAt.toISOString()) : null,
         } as any;
       }));
       
