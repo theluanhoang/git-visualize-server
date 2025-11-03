@@ -9,18 +9,39 @@ import { EUserRole } from '../users/user.interface';
 
 @Injectable()
 export class AuthService {
+  private readonly argon2Options: argon2.Options;
+
   constructor(
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    const isProduction = nodeEnv === 'production';
+    
+    if (isProduction) {
+      this.argon2Options = {
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 4,
+      };
+    } else {
+      this.argon2Options = {
+        type: argon2.argon2id,
+        memoryCost: 16384,
+        timeCost: 2, 
+        parallelism: 2, 
+      };
+    }
+  }
 
   async register(email: string, password: string) {
     const exists = await this.userService.findByEmail(email);
     if (exists) throw new ConflictException('Email already registered');
 
-    const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+    const passwordHash = await argon2.hash(password, this.argon2Options);
     const user = await this.userService.create({ 
       email, 
       passwordHash, 
@@ -42,7 +63,7 @@ export class AuthService {
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
     const tokens = await this.generateTokens(user);
-    const refreshTokenHash = await argon2.hash(tokens.refreshToken, { type: argon2.argon2id });
+    const refreshTokenHash = await argon2.hash(tokens.refreshToken, this.argon2Options);
     
     await this.sessionService.createSession({
       userId: user.id,

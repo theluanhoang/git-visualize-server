@@ -14,8 +14,14 @@ import { ConfigService } from '@nestjs/config';
         password: config.getOrThrow<string>('database.password'),
         database: config.getOrThrow<string>('database.database'),
         autoLoadEntities: true,
-        synchronize: true, // Tự động tạo bảng từ entities
+        synchronize: config.get<boolean>('database.synchronize') ?? false,
         logging: config.get<boolean>('database.logging'),
+        extra: {
+          max: parseInt(process.env.DB_POOL_SIZE || '50', 10),
+          min: parseInt(process.env.DB_POOL_MIN || '5', 10),
+          connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10),
+          idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
+        },
         // Keep snake_case naming if needed later via custom naming strategy
       }),
     }),

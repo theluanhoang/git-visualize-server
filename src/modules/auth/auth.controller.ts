@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Headers, Ip, Post, Req } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiHeader } from '@nestjs/swagger';
+import { Body, Controller, Get, Headers, HttpCode, Ip, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { AuthenticatedRequestDto } from './dto/authenticated-request.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Auth')
 @Controller('/auth')
@@ -20,6 +21,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Login with email/password' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Return access and refresh tokens' })
@@ -48,8 +50,11 @@ export class AuthController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user from access token' })
   @ApiResponse({ status: 200, description: 'User information retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   me(@Req() req: AuthenticatedRequestDto) {
     return req.user || null;
   }
