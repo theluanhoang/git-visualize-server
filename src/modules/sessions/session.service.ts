@@ -267,4 +267,48 @@ export class SessionService {
       select: ['createdAt', 'expiresAt', 'revokedAt'],
     });
   }
+
+  async getHourlyActivityAggregate(date?: string): Promise<Array<{ hour: string; users: number }>> {
+    const filter = date ? `WHERE DATE("createdAt") = $1` : '';
+    const params = date ? [date] : [];
+    const rows: Array<{ hour: string; users: number }> = await this.sessionRepository.query(
+      `WITH hours AS (
+         SELECT generate_series(0,23) AS h
+       ), stats AS (
+         SELECT EXTRACT(HOUR FROM "createdAt")::int AS h, COUNT(*) AS cnt
+         FROM "session"
+         ${filter}
+         GROUP BY 1
+       )
+       SELECT LPAD(hours.h::text, 2, '0') AS hour,
+              COALESCE(stats.cnt, 0)::int       AS users
+       FROM hours
+       LEFT JOIN stats ON stats.h = hours.h
+       ORDER BY hours.h;`,
+      params
+    );
+    return rows;
+  }
+
+  async getDeviceUsageAggregate(): Promise<{ desktop: number; mobile: number; tablet: number; bot: number; unknown: number }> {
+    const row: any = await this.sessionRepository
+      .createQueryBuilder('s')
+      .select([
+        "COUNT(DISTINCT CASE WHEN (LOWER(s.\"user_agent\") LIKE '%bot%' OR LOWER(s.\"user_agent\") LIKE '%crawl%' OR LOWER(s.\"user_agent\") LIKE '%spider%') THEN s.\"userId\" END) AS bot",
+        "COUNT(DISTINCT CASE WHEN (LOWER(s.\"user_agent\") LIKE '%tablet%' OR LOWER(s.\"user_agent\") LIKE '%ipad%') THEN s.\"userId\" END) AS tablet",
+        "COUNT(DISTINCT CASE WHEN (LOWER(s.\"user_agent\") LIKE '%mobile%' OR LOWER(s.\"user_agent\") LIKE '%android%' OR LOWER(s.\"user_agent\") LIKE '%iphone%') AND NOT (LOWER(s.\"user_agent\") LIKE '%tablet%' OR LOWER(s.\"user_agent\") LIKE '%ipad%') THEN s.\"userId\" END) AS mobile",
+        "COUNT(DISTINCT CASE WHEN s.\"user_agent\" IS NOT NULL AND LENGTH(TRIM(s.\"user_agent\")) > 0 AND NOT (LOWER(s.\"user_agent\") LIKE '%bot%' OR LOWER(s.\"user_agent\") LIKE '%crawl%' OR LOWER(s.\"user_agent\") LIKE '%spider%' OR LOWER(s.\"user_agent\") LIKE '%mobile%' OR LOWER(s.\"user_agent\") LIKE '%android%' OR LOWER(s.\"user_agent\") LIKE '%iphone%' OR LOWER(s.\"user_agent\") LIKE '%tablet%' OR LOWER(s.\"user_agent\") LIKE '%ipad%') THEN s.\"userId\" END) AS desktop",
+        "COUNT(DISTINCT CASE WHEN (s.\"user_agent\" IS NULL OR LENGTH(TRIM(s.\"user_agent\")) = 0) THEN s.\"userId\" END) AS unknown",
+      ])
+      .where('1=1')
+      .getRawOne();
+
+    const bot = Number(row.bot) || 0;
+    const tablet = Number(row.tablet) || 0;
+    const mobile = Number(row.mobile) || 0;
+    const desktop = Number(row.desktop) || 0;
+    const unknown = Number(row.unknown) || 0;
+
+    return { desktop, mobile, tablet, bot, unknown };
+  }
 }

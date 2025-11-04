@@ -71,6 +71,40 @@ export class AdminService {
     };
   }
 
+  async getDeviceUsageBreakdown(): Promise<Array<{ device: 'Desktop' | 'Mobile' | 'Tablet' | 'Bot' | 'Unknown'; count: number }>> {
+    try {
+      const agg = await this.sessionService.getDeviceUsageAggregate();
+
+      const result: Array<{ device: 'Desktop' | 'Mobile' | 'Tablet' | 'Bot' | 'Unknown'; count: number }> = [
+        { device: 'Desktop', count: agg.desktop },
+        { device: 'Mobile', count: agg.mobile },
+        { device: 'Tablet', count: agg.tablet },
+        { device: 'Bot', count: agg.bot },
+        { device: 'Unknown', count: agg.unknown },
+      ];
+
+      return result;
+    } catch (error) {
+      console.error('Error calculating device usage:', error);
+      return [
+        { device: 'Desktop', count: 0 },
+        { device: 'Mobile', count: 0 },
+        { device: 'Tablet', count: 0 },
+        { device: 'Bot', count: 0 },
+        { device: 'Unknown', count: 0 },
+      ];
+    }
+  }
+
+  async getHourlyActivity(date?: string): Promise<Array<{ hour: string; users: number }>> {
+    try {
+      return this.sessionService.getHourlyActivityAggregate(date);
+    } catch (error) {
+      console.error('Error calculating hourly activity:', error);
+      return Array.from({ length: 24 }, (_, i) => ({ hour: `${String(i).padStart(2, '0')}:00`, users: 0 }));
+    }
+  }
+
   private async calculateTotalTimeSpent(): Promise<{ hours: number; minutes: number }> {
     try {
       const stats = await this.practiceEntityService.getAggregateStats();

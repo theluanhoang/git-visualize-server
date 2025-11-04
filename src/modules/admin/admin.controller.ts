@@ -85,6 +85,22 @@ export class AdminController {
   async getAnalyticsMetrics() {
     return this.adminService.getAnalyticsMetrics();
   }
+
+  @Get('analytics/device-usage')
+  @ApiOperation({ summary: 'Get device usage breakdown' })
+  @ApiResponse({ status: 200, description: 'Device usage retrieved' })
+  @ForAdmin()
+  async getDeviceUsage() {
+    return this.adminService.getDeviceUsageBreakdown();
+  }
+
+  @Get('analytics/hourly-activity')
+  @ApiOperation({ summary: 'Get hourly user activity counts (by session creation hour)' })
+  @ApiResponse({ status: 200, description: 'Hourly activity retrieved' })
+  @ForAdmin()
+  async getHourlyActivity(@Query('date') date?: string) {
+    return this.adminService.getHourlyActivity(date);
+  }
 }
 
 
