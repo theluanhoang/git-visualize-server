@@ -111,6 +111,12 @@
       "ts"
     ],
     "rootDir": "src",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1",
+      "^file-type$": "<rootDir>/test/__mocks__/file-type.ts"
+    },
+    "globalSetup": "<rootDir>/test/jest-global-setup.ts",
+    "globalTeardown": "<rootDir>/test/jest-global-teardown.ts",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
