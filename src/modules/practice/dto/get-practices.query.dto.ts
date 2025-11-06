@@ -138,4 +138,14 @@ export class GetPracticesQueryDto {
     @IsBoolean()
     @ToBoolean()
     includeRelations?: boolean = true;
+
+    @ApiPropertyOptional({
+        description: 'Only include practices whose lessons are PUBLISHED',
+        example: true,
+        default: true
+    })
+    @IsOptional()
+    @IsBoolean()
+    @ToBoolean()
+    publishedOnly?: boolean = true;
 }

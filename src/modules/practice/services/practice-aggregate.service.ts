@@ -234,7 +234,7 @@ export class PracticeAggregateService implements IPracticeService {
      * Helper method to build query builder with filters
      */
     private buildQueryBuilder(query: GetPracticesQueryDto, includeRelations: boolean) {
-        const { id, lessonId, lessonSlug, isActive, q, difficulty, tag } = query;
+        const { id, lessonId, lessonSlug, isActive, q, difficulty, tag, publishedOnly = true } = query;
         
         const queryBuilder = this.dataSource.createQueryBuilder(Practice, 'practice');
 
@@ -284,6 +284,10 @@ export class PracticeAggregateService implements IPracticeService {
                 '(practice.title ILIKE :q OR practice.scenario ILIKE :q OR lesson.title ILIKE :q)',
                 { q: `%${q}%` }
             );
+        }
+
+        if (publishedOnly !== false) {
+            queryBuilder.andWhere('lesson.status = :publishedStatus', { publishedStatus: 'PUBLISHED' });
         }
 
         // Ordering

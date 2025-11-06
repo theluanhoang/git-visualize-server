@@ -11,6 +11,7 @@ import { UserModule } from './modules/users/user.module';
 import { SessionModule } from './modules/sessions/session.module';
 import { MailModule } from './modules/mail/mail.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PublicModule } from './modules/public/public.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { AdminModule } from './modules/admin/admin.module';
     UserModule,
     SessionModule,
     MailModule,
-    AdminModule
+    AdminModule,
+    PublicModule
   ],
   controllers: [],
   providers: [],

@@ -104,6 +104,18 @@ export class PracticeEntityService {
     async incrementCompletions(id: string): Promise<void> {
         await this.practiceRepository.increment({ id }, 'completions', 1);
     }
+
+    async countForPublishedLessons(): Promise<number> {
+        const row = await this.practiceRepository.manager
+            .createQueryBuilder()
+            .from('practice', 'practice')
+            .innerJoin('lesson', 'lesson', 'lesson.id = practice."lessonId"')
+            .where('lesson.status = :status', { status: 'PUBLISHED' })
+            .select('COUNT(practice.id)', 'count')
+            .getRawOne<{ count: string }>();
+
+        return Number(row?.count ?? 0);
+    }
     
     async getAggregateStats(): Promise<{
         totalTimeSpent: { totalMinutes: number };
