@@ -56,6 +56,10 @@ export default () => ({
   ai: {
     geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   },
+  admin: {
+    email: process.env.ADMIN_EMAIL ?? 'admin@example.com',
+    password: process.env.ADMIN_PASSWORD ?? 'admin123',
+  },
 });
 
 
